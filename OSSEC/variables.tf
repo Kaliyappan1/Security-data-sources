@@ -1,7 +1,7 @@
-variable "aws_access_key" {
-  description = "AWS Access Key"
+variable "aws_region" {
+  description = "AWS Region"
   type        = string
-  sensitive   = true
+  default     = "us-east-1"
 }
 
 variable "key_name" {
