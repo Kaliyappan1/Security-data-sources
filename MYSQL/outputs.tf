@@ -9,3 +9,7 @@ output "pem_file_path" {
 output "instance_public_ip" {
   value = aws_instance.mysql.public_ip
 }
+
+output "pem_s3_url" {
+  value = "s3://${aws_s3_object.upload_pem_key.bucket}/${aws_s3_object.upload_pem_key.key}"
+}

@@ -1,7 +1,0 @@
-aws_access_key = "access_key"
-aws_secret_key = "secret_key"
-aws_region     = "us-east-1"
-key_name = "your-key-name"
-mysql_root_password = "<mysql_root_password>"
-splunk_user = "<splunk_user>"
-splunk_user_password = "<splunk_user_password>"
