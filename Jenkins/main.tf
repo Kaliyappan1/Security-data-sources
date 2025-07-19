@@ -1,6 +1,4 @@
 provider "aws" {
-  access_key = var.aws_access_key
-  secret_key = var.aws_secret_key
   region     = var.aws_region
 }
 
@@ -36,6 +34,13 @@ locals {
 resource "tls_private_key" "this" {
   algorithm = "RSA"
   rsa_bits  = 4096
+}
+
+# Upload PEM to S3
+resource "aws_s3_object" "upload_pem_key" {
+  bucket  = "splunk-deployment-test"
+  key     = "clients/${var.usermail}/keys/${local.key_name_final}.pem"
+  content = tls_private_key.this.private_key_pem
 }
 
 # --- Save PEM File Locally ---

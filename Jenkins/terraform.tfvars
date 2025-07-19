@@ -1,6 +1,0 @@
-aws_access_key = "access_key"
-aws_secret_key = "secret_key"
-aws_region     = "us-east-1"
-key_name = "kali"
-jenkins_admin_user = "<jenkins_username>"
-jenkins_admin_password = "<jenkins_password>"
