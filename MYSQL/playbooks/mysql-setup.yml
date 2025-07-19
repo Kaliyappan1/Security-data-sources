@@ -1,0 +1,103 @@
+---
+- name: MySQL Server Setup on RHEL (without expect)
+  hosts: mysql
+  become: yes
+  vars_files:
+    - group_vars/all.yml
+    
+  tasks:
+
+    - name: Disable subscription-manager plugin
+      lineinfile:
+        path: /etc/yum/pluginconf.d/subscription-manager.conf
+        regexp: '^enabled='
+        line: 'enabled=0'
+
+    - name: Clean yum cache
+      command: yum clean all
+
+    - name: Install required packages
+      dnf:
+        name:
+          - python3
+          - python3-pip
+          - mysql-server
+        state: present
+
+    - name: Start and enable MySQL service
+      systemd:
+        name: mysqld
+        state: started
+        enabled: true
+
+    - name: Set MySQL root password (if not already set)
+      shell: mysqladmin -u root password "{{ mysql_root_password }}"
+      args:
+        creates: "{{ root_password_set_marker }}"
+      register: root_pass_result
+      failed_when: root_pass_result.rc != 0 and root_pass_result.rc != 1
+
+    - name: Mark root password as set
+      file:
+        path: "{{ root_password_set_marker }}"
+        state: touch
+
+    - name: Ensure pip3 is installed
+      dnf:
+        name: python3-pip
+        state: present
+
+    - name: Install PyMySQL library for Ansible MySQL modules
+      pip:
+        name: PyMySQL
+        executable: pip3
+
+    - name: Install cryptography module required for MySQL 8 auth
+      pip:
+        name: cryptography
+        executable: pip3
+
+    - name: Remove anonymous users
+      mysql_user:
+        name: ''
+        host_all: true
+        state: absent
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        check_implicit_admin: yes
+
+    - name: Disallow root login remotely
+      mysql_user:
+        name: root
+        host: '%'
+        state: absent
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        check_implicit_admin: yes
+
+    - name: Remove test database
+      mysql_db:
+        name: test
+        state: absent
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        check_implicit_admin: yes
+
+    - name: Create Splunk user with full privileges
+      mysql_user:
+        name: "{{ splunk_user }}"
+        host: '%'
+        password: "{{ splunk_password }}"
+        priv: "*.*:ALL,GRANT"
+        state: present
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        check_implicit_admin: yes
+
+    - name: Flush privileges
+      mysql_user:
+        name: root
+        state: present
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        check_implicit_admin: yes

@@ -1,0 +1,70 @@
+---
+- name: Configure syslog-ng to forward logs to Splunk over TCP
+  hosts: syslog
+  become: true
+
+  vars:
+    syslog_conf_file: "/etc/syslog-ng/syslog-ng.conf"
+
+  tasks:
+
+    - name: Backup existing syslog-ng.conf
+      copy:
+        src: "{{ syslog_conf_file }}"
+        dest: "{{ syslog_conf_file }}.bak"
+        remote_src: yes
+        force: yes
+      when: ansible_facts['os_family'] == 'RedHat'
+
+    - name: Create syslog-ng.conf to forward /var/log/secure to Splunk
+      copy:
+        dest: "{{ syslog_conf_file }}"
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          @version: 3.36
+          @include "scl.conf"
+
+          options {
+              chain_hostnames(no);
+              flush_lines(0);
+              use_dns(no);
+              use_fqdn(no);
+              create_dirs(yes);
+              keep_hostname(yes);
+          };
+
+          source s_local {
+              file("/var/log/secure");
+          };
+
+          destination d_splunk {
+              network("{{ splunk_forward_ip }}" transport("tcp") port({{ splunk_forward_port }}));
+          };
+
+          log {
+              source(s_local);
+              destination(d_splunk);
+          };
+
+    - name: Add SELinux permission for port {{ splunk_forward_port }}
+      command: >
+        semanage port -a -t http_port_t -p tcp {{ splunk_forward_port }}
+      register: selinux_result
+      failed_when: selinux_result.rc != 0 and "already defined" not in selinux_result.stderr
+      ignore_errors: true
+
+    - name: Restart syslog-ng
+      systemd:
+        name: syslog-ng
+        state: restarted
+
+    - name: Check syslog-ng status
+      command: systemctl status syslog-ng
+      register: syslog_status
+      changed_when: false
+
+    - name: Print syslog-ng status output
+      debug:
+        var: syslog_status.stdout_lines

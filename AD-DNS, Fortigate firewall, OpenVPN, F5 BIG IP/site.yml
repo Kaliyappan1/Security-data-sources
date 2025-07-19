@@ -1,0 +1,382 @@
+---
+- name: Configure AD DS and DNS on Windows Server 2022
+  hosts: windows
+  gather_facts: no
+  tasks:
+    - name: Install AD DS and DNS Roles
+      win_feature:
+        name:
+          - AD-Domain-Services
+          - DNS
+        include_management_tools: yes
+        state: present
+
+    - name: Promote Server to Domain Controller
+      win_domain:
+        dns_domain_name: "SoftMania.test"
+        domain_netbios_name: "SOFTMANIA"
+        safe_mode_password: "SoftMania@123!"
+        state: domain_controller
+      register: domain_setup
+
+    - name: Reboot after domain controller setup
+      win_reboot:
+      when: domain_setup.reboot_required
+    
+    - name: Check if AD and DNS Services are Running
+      win_shell: "Get-Service -Name NTDS, DNS | Select-Object Name, Status"
+      register: ad_dns_services
+
+    - name: Display AD & DNS Service Status
+      debug:
+        var: ad_dns_services.stdout_lines
+
+    - name: Check Domain Controllers
+      win_shell: "Get-ADDomainController -Filter * | Select-Object Name, Domain, IPv4Address"
+      register: domain_controllers
+
+    - name: Display Domain Controllers
+      debug:
+        var: domain_controllers.stdout_lines
+
+    - name: Verify DNS Resolution
+      win_shell: "Resolve-DnsName SoftMania.test"
+      register: dns_resolution
+      ignore_errors: yes  # In case DNS is not resolving
+
+    - name: Display DNS Resolution Results
+      debug:
+        var: dns_resolution.stdout_lines
+
+    - name: Create IT Department OU
+      win_shell: |
+        if (-not (Get-ADOrganizationalUnit -Filter "Name -eq 'IT Department'")) {
+            New-ADOrganizationalUnit -Name "IT Department" -Path "DC=SoftMania,DC=test" -ProtectedFromAccidentalDeletion $false
+            Write-Output "Created OU: IT Department"
+        } else {
+            Write-Output "OU already exists: IT Department"
+        }
+      register: it_ou
+
+    - name: Display IT OU Creation Results
+      debug:
+        var: it_ou.stdout_lines
+
+    - name: Create HR Department OU
+      win_shell: |
+        if (-not (Get-ADOrganizationalUnit -Filter "Name -eq 'HR Department'")) {
+            New-ADOrganizationalUnit -Name "HR Department" -Path "DC=SoftMania,DC=test" -ProtectedFromAccidentalDeletion $false
+            Write-Output "Created OU: HR Department"
+        } else {
+            Write-Output "OU already exists: HR Department"
+        }
+      register: hr_ou
+
+    - name: Display HR OU Creation Results
+      debug:
+        var: hr_ou.stdout_lines
+
+    - name: Create Finance Department OU
+      win_shell: |
+        if (-not (Get-ADOrganizationalUnit -Filter "Name -eq 'Finance Department'")) {
+            New-ADOrganizationalUnit -Name "Finance Department" -Path "DC=SoftMania,DC=test" -ProtectedFromAccidentalDeletion $false
+            Write-Output "Created OU: Finance Department"
+        } else {
+            Write-Output "OU already exists: Finance Department"
+        }
+      register: finance_ou
+
+    - name: Display Finance OU Creation Results
+      debug:
+        var: finance_ou.stdout_lines
+
+    - name: Create Marketing Department OU
+      win_shell: |
+        if (-not (Get-ADOrganizationalUnit -Filter "Name -eq 'Marketing Department'")) {
+            New-ADOrganizationalUnit -Name "Marketing Department" -Path "DC=SoftMania,DC=test" -ProtectedFromAccidentalDeletion $false
+            Write-Output "Created OU: Marketing Department"
+        } else {
+            Write-Output "OU already exists: Marketing Department"
+        }
+      register: marketing_ou
+
+    - name: Display Marketing OU Creation Results
+      debug:
+        var: marketing_ou.stdout_lines
+
+
+- name: Create AD Users, Groups, and Add Users Separately
+  hosts: windows
+  gather_facts: no
+  tasks:
+
+    # IT Department
+    - name: Create IT Department User
+      win_shell: |
+        if (-not (Get-ADUser -Filter "SamAccountName -eq 'jdoe'")) {
+          New-ADUser -Name 'John Doe' -GivenName 'John' -Surname 'Doe' -SamAccountName 'jdoe' `
+            -UserPrincipalName 'jdoe@SoftMania.test' -Path 'OU=IT Department,DC=SoftMania,DC=test' `
+            -AccountPassword (ConvertTo-SecureString 'SoftMania@123!' -AsPlainText -Force) -Enabled $true
+          Write-Output "User 'jdoe' created successfully"
+        } else {
+          Write-Output "User 'jdoe' already exists. Skipping..."
+        }
+      register: it_user
+
+    - name: Create IT Security Group
+      win_shell: |
+        if (-not (Get-ADGroup -Filter "Name -eq 'IT Admins'")) {
+          New-ADGroup -Name 'IT Admins' -GroupScope Global -GroupCategory Security `
+            -Path 'OU=IT Department,DC=SoftMania,DC=test'
+          Write-Output "Created Security Group 'IT Admins'"
+        } else {
+          Write-Output "Security Group 'IT Admins' already exists"
+        }
+      register: it_group
+
+    - name: Add IT User to Group
+      win_shell: |
+        Add-ADGroupMember -Identity 'IT Admins' -Members 'jdoe'
+        Write-Output "User 'jdoe' added to 'IT Admins' group"
+      register: it_user_group
+
+    # HR Department
+    - name: Create HR Department User
+      win_shell: |
+        if (-not (Get-ADUser -Filter "SamAccountName -eq 'asmith'")) {
+          New-ADUser -Name 'Alice Smith' -GivenName 'Alice' -Surname 'Smith' -SamAccountName 'asmith' `
+            -UserPrincipalName 'asmith@SoftMania.test' -Path 'OU=HR Department,DC=SoftMania,DC=test' `
+            -AccountPassword (ConvertTo-SecureString 'SoftMania@123!' -AsPlainText -Force) -Enabled $true
+          Write-Output "User 'asmith' created successfully"
+        } else {
+          Write-Output "User 'asmith' already exists. Skipping..."
+        }
+      register: hr_user
+
+    - name: Create HR Security Group
+      win_shell: |
+        if (-not (Get-ADGroup -Filter "Name -eq 'HR Admins'")) {
+          New-ADGroup -Name 'HR Admins' -GroupScope Global -GroupCategory Security `
+            -Path 'OU=HR Department,DC=SoftMania,DC=test'
+          Write-Output "Created Security Group 'HR Admins'"
+        } else {
+          Write-Output "Security Group 'HR Admins' already exists"
+        }
+      register: hr_group
+
+    - name: Add HR User to Group
+      win_shell: |
+        Add-ADGroupMember -Identity 'HR Admins' -Members 'asmith'
+        Write-Output "User 'asmith' added to 'HR Admins' group"
+      register: hr_user_group
+
+    # Finance Department
+    - name: Create Finance Department User
+      win_shell: |
+        if (-not (Get-ADUser -Filter "SamAccountName -eq 'rbrown'")) {
+          New-ADUser -Name 'Robert Brown' -GivenName 'Robert' -Surname 'Brown' -SamAccountName 'rbrown' `
+            -UserPrincipalName 'rbrown@SoftMania.test' -Path 'OU=Finance Department,DC=SoftMania,DC=test' `
+            -AccountPassword (ConvertTo-SecureString 'SoftMania@123!' -AsPlainText -Force) -Enabled $true
+          Write-Output "User 'rbrown' created successfully"
+        } else {
+          Write-Output "User 'rbrown' already exists. Skipping..."
+        }
+      register: finance_user
+
+    - name: Create Finance Security Group
+      win_shell: |
+        if (-not (Get-ADGroup -Filter "Name -eq 'Finance Admins'")) {
+          New-ADGroup -Name 'Finance Admins' -GroupScope Global -GroupCategory Security `
+            -Path 'OU=Finance Department,DC=SoftMania,DC=test'
+          Write-Output "Created Security Group 'Finance Admins'"
+        } else {
+          Write-Output "Security Group 'Finance Admins' already exists"
+        }
+      register: finance_group
+
+    - name: Add Finance User to Group
+      win_shell: |
+        Add-ADGroupMember -Identity 'Finance Admins' -Members 'rbrown'
+        Write-Output "User 'rbrown' added to 'Finance Admins' group"
+      register: finance_user_group
+
+    # Marketing Department
+    - name: Create Marketing Department User
+      win_shell: |
+        if (-not (Get-ADUser -Filter "SamAccountName -eq 'ewhite'")) {
+          New-ADUser -Name 'Emily White' -GivenName 'Emily' -Surname 'White' -SamAccountName 'ewhite' `
+            -UserPrincipalName 'ewhite@SoftMania.test' -Path 'OU=Marketing Department,DC=SoftMania,DC=test' `
+            -AccountPassword (ConvertTo-SecureString 'SoftMania@123!' -AsPlainText -Force) -Enabled $true
+          Write-Output "User 'ewhite' created successfully"
+        } else {
+          Write-Output "User 'ewhite' already exists. Skipping..."
+        }
+      register: marketing_user
+
+    - name: Create Marketing Security Group
+      win_shell: |
+        if (-not (Get-ADGroup -Filter "Name -eq 'Marketing Admins'")) {
+          New-ADGroup -Name 'Marketing Admins' -GroupScope Global -GroupCategory Security `
+            -Path 'OU=Marketing Department,DC=SoftMania,DC=test'
+          Write-Output "Created Security Group 'Marketing Admins'"
+        } else {
+          Write-Output "Security Group 'Marketing Admins' already exists"
+        }
+      register: marketing_group
+
+    - name: Add Marketing User to Group
+      win_shell: |
+        Add-ADGroupMember -Identity 'Marketing Admins' -Members 'ewhite'
+        Write-Output "User 'ewhite' added to 'Marketing Admins' group"
+      register: marketing_user_group
+
+    - name: Verify if DNS Server is Running
+      win_shell: |
+        Get-DnsServerZone
+      register: dns_check
+
+    - name: Display DNS Server Zones
+      debug:
+        var: dns_check.stdout_lines
+
+
+    - name: Create A Record (webserver → 172.31.86.18)
+      win_shell: |
+        if (-not (Get-DnsServerResourceRecord -ZoneName "SoftMania.test" -Name "webserver")) {
+            Add-DnsServerResourceRecordA -Name "webserver" -ZoneName "SoftMania.test" -IPv4Address "172.31.86.18"
+            Write-Output "A Record 'webserver' created successfully"
+        } else {
+            Write-Output "A Record 'webserver' already exists"
+        }
+      register: a_record
+
+    - name: Display A Record Creation Results
+      debug:
+        var: a_record.stdout_lines
+
+    - name: Create CNAME Record (alias → webserver.SoftMania.test)
+      win_shell: |
+        if (-not (Get-DnsServerResourceRecord -ZoneName "SoftMania.test" -Name "alias")) {
+            Add-DnsServerResourceRecordCName -Name "alias" -ZoneName "SoftMania.test" -HostNameAlias "webserver.SoftMania.test"
+            Write-Output "CNAME Record 'alias' created successfully"
+        } else {
+            Write-Output "CNAME Record 'alias' already exists"
+        }
+      register: cname_record
+
+    - name: Display CNAME Record Creation Results
+      debug:
+        var: cname_record.stdout_lines
+
+    - name: Create MX Record (mail exchange)
+      win_shell: |
+        if (-not (Get-DnsServerResourceRecord -ZoneName "SoftMania.test" -Name "@")) {
+            Add-DnsServerResourceRecordMX -Name "@" -ZoneName "SoftMania.test" -MailExchange "mail.SoftMania.test" -Preference 10
+            Write-Output "MX Record created successfully"
+        } else {
+            Write-Output "MX Record already exists"
+        }
+      register: mx_record
+
+    - name: Display MX Record Creation Results
+      debug:
+        var: mx_record.stdout_lines
+
+    - name: Verify All DNS Records
+      win_shell: |
+        Get-DnsServerResourceRecord -ZoneName "SoftMania.test"
+      register: dns_records
+
+    - name: Display All DNS Records
+      debug:
+        var: dns_records.stdout_lines
+
+- name: Bulk Create 100 DNS, CNAME, MX DNS Records
+  hosts: windows
+  gather_facts: no
+  tasks:
+  
+    - name: Create 100 DNS A Records
+      win_shell: |
+        $ZoneName = "SoftMania.test"
+
+        for ($i=1; $i -le 100; $i++) {
+            $RecordName = "host$i"
+            $IPAddress = "192.168.1.$i"
+
+            if (-not (Get-DnsServerResourceRecord -ZoneName $ZoneName -Name $RecordName -ErrorAction SilentlyContinue)) {
+                Add-DnsServerResourceRecordA -ZoneName $ZoneName -Name $RecordName -IPv4Address $IPAddress -TimeToLive 01:00:00
+                Write-Output "Created DNS A Record: $RecordName -> $IPAddress"
+            } else {
+                Write-Output "A Record $RecordName already exists. Skipping..."
+            }
+        }
+        Write-Output "✅ 100 DNS A Records Created Successfully!"
+      register: a_record_creation
+
+    - name: Display A Record Creation Results
+      debug:
+        var: a_record_creation.stdout_lines
+
+    - name: Verify Created A Records
+      win_shell: |
+        Get-DnsServerResourceRecord -ZoneName "SoftMania.test"
+      register: verify_a_records
+
+    - name: Display All DNS A Records
+      debug:
+        var: verify_a_records.stdout_lines
+
+    - name: Create 100 CNAME Records
+      win_shell: |
+        $ZoneName = "SoftMania.test"
+
+        for ($i=1; $i -le 100; $i++) {
+            $CNAME_RecordName = "alias$i"
+            $CNAME_Target = "server$i.$ZoneName"
+
+            if (-not (Get-DnsServerResourceRecord -ZoneName $ZoneName -Name $CNAME_RecordName)) {
+                Add-DnsServerResourceRecordCName -ZoneName $ZoneName -Name $CNAME_RecordName -HostNameAlias $CNAME_Target -TimeToLive 01:00:00
+                Write-Output "Created DNS CNAME Record: $CNAME_RecordName -> $CNAME_Target"
+            } else {
+                Write-Output "CNAME Record $CNAME_RecordName already exists. Skipping..."
+            }
+        }
+        Write-Output "✅ 100 CNAME DNS Records Created Successfully!"
+      register: cname_creation
+
+    - name: Display CNAME Creation Results
+      debug:
+        var: cname_creation.stdout_lines
+
+    - name: Create 100 MX Records
+      win_shell: |
+        $ZoneName = "SoftMania.test"
+
+        for ($i=1; $i -le 100; $i++) {
+            $MX_RecordName = "mail$i"
+            $MX_Target = "mailserver$i.$ZoneName"
+            $MX_Preference = 10
+
+            if (-not (Get-DnsServerResourceRecord -ZoneName $ZoneName -Name $MX_RecordName)) {
+                Add-DnsServerResourceRecordMX -ZoneName $ZoneName -Name $MX_RecordName -MailExchange $MX_Target -Preference $MX_Preference -TimeToLive 01:00:00
+                Write-Output "Created DNS MX Record: $MX_RecordName -> $MX_Target with priority $MX_Preference"
+            } else {
+                Write-Output "MX Record $MX_RecordName already exists. Skipping..."
+            }
+        }
+        Write-Output "✅ 100 MX DNS Records Created Successfully!"
+      register: mx_creation
+
+    - name: Display MX Creation Results
+      debug:
+        var: mx_creation.stdout_lines
+
+    - name: Verify Created CNAME and MX Records
+      win_shell: |
+        Get-DnsServerResourceRecord -ZoneName "SoftMania.test"
+      register: verify_dns
+
+    - name: Display All DNS Records
+      debug:
+        var: verify_dns.stdout_lines

@@ -1,0 +1,60 @@
+- name: MSSQL Setup for Splunk Integration
+  hosts: mssql
+  become: true
+  gather_facts: false
+  vars_files:
+    - group_vars/all.yml
+
+  tasks:  
+    - name: Create TestDB if not exists
+      shell: >
+        /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "{{ sa_password }}" -C \
+        -Q "IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'TestDB') BEGIN CREATE DATABASE TestDB; END"
+
+    - name: Create Inventory table and seed data if not exists
+      shell: >
+        /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "{{ sa_password }}" -C -d TestDB \
+        -Q "IF OBJECT_ID('dbo.Inventory', 'U') IS NULL BEGIN CREATE TABLE dbo.Inventory (id INT PRIMARY KEY, name NVARCHAR(50), quantity INT); INSERT INTO dbo.Inventory VALUES (1, 'banana', 150), (2, 'orange', 154), (3, 'Mango', 155), (4, 'guava', 156), (5, 'Mango', 152); END"
+
+    - name: Enable contained database authentication
+      ansible.builtin.shell: |
+        /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "{{ sa_password }}" -C -Q "
+        EXEC sp_configure 'contained database authentication', 1;
+        RECONFIGURE;
+        "
+      register: enable_contained
+      changed_when: "'RECONFIGURE' in enable_contained.stdout"
+
+    - name: Set containment to PARTIAL and create user with SELECT on Inventory
+      ansible.builtin.shell: |
+        /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "{{ sa_password }}" -C -d TestDB -Q "
+        ALTER DATABASE TestDB SET CONTAINMENT = PARTIAL;
+        IF NOT EXISTS (SELECT * FROM sys.database_principals WHERE name = 'Test123')
+        BEGIN
+          CREATE USER Test123 WITH PASSWORD = '{{ splunk_user_password }}';
+          GRANT SELECT ON dbo.Inventory TO Test123;
+        END;"
+      no_log: true
+      register: create_user
+      changed_when: "'GRANT' in create_user.stdout or 'CREATE USER' in create_user.stdout"
+
+
+    - name: Set TLS Protocols (1.2, 1.1, 1.0)
+      ansible.builtin.shell: |
+        /opt/mssql/bin/mssql-conf set network.tlsprotocols "1.2,1.1,1.0"
+      register: tls_set
+      changed_when: "'network.tlsprotocols' in tls_set.stdout"
+
+    - name: Verify TLS protocol configuration
+      ansible.builtin.shell: /opt/mssql/bin/mssql-conf get network.tlsprotocols
+      register: tls_protocols_check
+      changed_when: false
+
+    - name: Display TLS protocols
+      debug:
+        var: tls_protocols_check.stdout_lines
+
+    - name: Restart MSSQL after TLS config
+      ansible.builtin.systemd:
+        name: mssql-server
+        state: restarted

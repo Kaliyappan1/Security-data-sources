@@ -1,0 +1,84 @@
+---
+- name: MSSQL Setup for Splunk Integration
+  hosts: mssql
+  become: true
+  gather_facts: false
+  vars_files:
+    - group_vars/all.yml
+
+  tasks:
+
+    - name: Wait for python3.12 to become available (max 10 retries)
+      shell: test -f /usr/bin/python3.12
+      register: python_check
+      retries: 10
+      delay: 20
+      until: python_check.rc == 0
+
+    - name: Install pip for Python 3.12
+      shell: |
+        curl -sS https://bootstrap.pypa.io/get-pip.py | /usr/bin/python3.12
+      args:
+        creates: /usr/bin/pip3.12
+
+    - name: Install required Python packages for Ansible
+      shell: |
+        /usr/bin/python3.12 -m ensurepip --upgrade
+        /usr/bin/python3.12 -m pip install --upgrade packaging
+      args:
+        creates: /usr/local/lib/python3.12/site-packages/packaging
+
+    - name: Install setuptools required for pkg_resources
+      shell: |
+        /usr/bin/python3.12 -m pip install --upgrade setuptools
+      args:
+        creates: /usr/local/lib/python3.12/site-packages/setuptools
+
+  
+    - name: Install pexpect for handling interactive prompts
+      pip:
+        name: pexpect
+        executable: /usr/local/bin/pip3.12
+
+    - name: Stop MSSQL service before configuration
+      systemd:
+        name: mssql-server
+        state: stopped
+
+    - name: Add SQL tools path to root shell environment
+      lineinfile:
+        path: "{{ item }}"
+        line: 'export PATH="$PATH:/opt/mssql-tools/bin"'
+        create: yes
+        mode: '0644'
+      loop:
+        - /root/.bash_profile
+        - /root/.bashrc
+
+    - name: Source .bashrc for updated PATH (no-op for script correctness)
+      shell: source /root/.bashrc
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Set SA password securely using expect
+      expect:
+        command: /opt/mssql/bin/mssql-conf set-sa-password
+        responses:
+          'Enter the SQL Server system administrator password:': "{{ sa_password }}"
+          'Confirm the SQL Server system administrator password:': "{{ sa_password }}"
+
+    - name: Start MSSQL service
+      systemd:
+        name: mssql-server
+        state: started
+        enabled: true
+
+    - name: Wait for MSSQL to become available
+      wait_for:
+        port: 1433
+        host: localhost
+        timeout: 120
+        state: started
+
+    

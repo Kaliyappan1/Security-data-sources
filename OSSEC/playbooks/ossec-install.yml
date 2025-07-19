@@ -1,0 +1,102 @@
+---
+- name: Install and configure OSSEC on Ubuntu
+  hosts: all
+  become: yes
+  vars:
+    ossec_version: "3.7.0"
+    ossec_tarball: "ossec-hids-{{ ossec_version }}.tar.gz"
+    ossec_url: "https://github.com/ossec/ossec-hids/archive/{{ ossec_version }}.tar.gz"
+    ossec_dir: "ossec-hids-{{ ossec_version }}"
+
+  tasks:
+    - name: Update and upgrade system
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Add repository for legacy PHP
+      apt:
+        name: software-properties-common
+        state: present
+
+    - name: Add Ondrej PHP PPA
+      apt_repository:
+        repo: ppa:ondrej/php
+        state: present
+
+    - name: Install required packages
+      apt:
+        name:
+          - build-essential
+          - gcc
+          - make
+          - apache2
+          - libapache2-mod-php7.0
+          - php7.0
+          - php7.0-cli
+          - php7.0-common
+          - apache2-utils
+          - unzip
+          - wget
+          - sendmail
+          - inotify-tools
+          - libevent-dev
+          - zlib1g-dev
+          - libssl-dev
+          - libpcre2-dev
+          - libsystemd-dev
+          - expect
+        state: present
+
+    - name: Ensure /opt/ directory exists
+      file:
+        path: /opt
+        state: directory
+        mode: '0755'
+
+    - name: Download OSSEC tarball
+      get_url:
+        url: https://github.com/ossec/ossec-hids/archive/refs/tags/3.7.0.tar.gz
+        dest: /opt/ossec.tar.gz
+
+    - name: Extract OSSEC tarball
+      unarchive:
+        src: /opt/ossec.tar.gz
+        dest: /opt/
+        remote_src: yes
+
+
+    - name: Run OSSEC install.sh interactively via expect
+      expect:
+        command: ./install.sh
+        chdir: /opt/ossec-hids-3.7.0
+        timeout: 600
+        responses:
+          '.*\) \[en\]:'                                       : "en"
+          'Press ENTER to continue.*'                          : ""
+          'What kind of installation.*'                        : "local"
+          'Choose where to install the OSSEC HIDS.*'           : ""
+          'Do you want e-mail notification.*'                  : "y"
+          "What's your e-mail address.*"                       : "root@localhost"
+          'Do you want to use it.*'                            : "y"
+          'Do you want to run the integrity check daemon.*'    : "y"
+          'Do you want to run the rootkit detection engine.*'  : "y"
+          'Do you want to enable active response.*'            : "y"
+          'Do you want to enable the firewall-drop response.*' : "y"
+          'Do you want to add more IPs to the white list.*'    : "n"
+          '--- Press ENTER to continue ---'                    : ""
+          '---  Press ENTER to finish.*'                       : ""
+      register: ossec_install_result
+
+    - name: Start OSSEC service
+      command: /var/ossec/bin/ossec-control start
+
+    - name: Check if OSSEC is running
+      shell: /var/ossec/bin/ossec-control status
+      register: ossec_status
+      changed_when: false
+
+    - name: Print OSSEC status
+      debug:
+        var: ossec_status.stdout_lines
+

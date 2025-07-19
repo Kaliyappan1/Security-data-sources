@@ -1,0 +1,6 @@
+aws_access_key = "access_key"
+aws_secret_key = "secret_key"
+aws_region     = "us-east-1"
+key_name = "kali"
+ossec_webui_admin_user = "admin"
+ossec_webui_admin_pass = "admin123"

@@ -1,0 +1,79 @@
+---
+- name: Create and populate 'movies' MySQL database
+  hosts: mysql
+  become: yes
+  vars_files:
+    - group_vars/all.yml
+
+  tasks:
+
+    - name: Ensure 'movies' database is present
+      community.mysql.mysql_db:
+        name: movies
+        state: present
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Create 'movies' table
+      community.mysql.mysql_query:
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_db: movies
+        query: |
+          CREATE TABLE IF NOT EXISTS movies (
+            title VARCHAR(50) NOT NULL,
+            genre VARCHAR(30) NOT NULL,
+            director VARCHAR(60) NOT NULL,
+            release_year INT NOT NULL,
+            PRIMARY KEY(title)
+          );
+
+    - name: Insert movie 1 - Joker
+      community.mysql.mysql_query:
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_db: movies
+        query: |
+          INSERT INTO movies (title, genre, director, release_year)
+          VALUES ("Joker", "psychological thriller", "Todd Phillips", 2019)
+          ON DUPLICATE KEY UPDATE
+            genre=VALUES(genre),
+            director=VALUES(director),
+            release_year=VALUES(release_year);
+
+    - name: Insert movie 2 - Inception
+      community.mysql.mysql_query:
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_db: movies
+        query: |
+          INSERT INTO movies (title, genre, director, release_year)
+          VALUES ("Inception", "sci-fi", "Christopher Nolan", 2010)
+          ON DUPLICATE KEY UPDATE
+            genre=VALUES(genre),
+            director=VALUES(director),
+            release_year=VALUES(release_year);
+
+    - name: Verify 'movies' table structure
+      community.mysql.mysql_query:
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_db: movies
+        query: DESCRIBE movies;
+      register: describe_result
+
+    - name: Show table structure
+      debug:
+        var: describe_result.query_result[0]
+
+    - name: Fetch all data from movies table
+      community.mysql.mysql_query:
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_db: movies
+        query: SELECT * FROM movies;
+      register: movie_rows
+
+    - name: Display movie records
+      debug:
+        var: movie_rows.query_result[0]

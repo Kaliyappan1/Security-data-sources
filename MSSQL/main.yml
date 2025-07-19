@@ -1,0 +1,13 @@
+---
+- name: Wait for instance to fully boot
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Pause for 100 seconds
+      ansible.builtin.pause:
+        seconds: 100
+
+- import_playbook: playbooks/mssql-setup.yml
+
+- import_playbook: playbooks/mssql-database-creation.yml

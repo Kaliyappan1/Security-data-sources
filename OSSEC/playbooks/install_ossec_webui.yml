@@ -1,0 +1,64 @@
+---
+- name: Install OSSEC Web UI
+  hosts: ossec
+  become: true
+
+  vars:
+    ossec_webui_dir: /var/www/html/ossec
+    ossec_webui_zip: /tmp/ossec-webui.zip
+
+  tasks:
+    - name: Ensure required packages are installed
+      apt:
+        name:
+          - unzip
+          - apache2
+          - php
+          - libapache2-mod-php
+          - php-cli
+          - expect
+        update_cache: true
+        state: present
+
+    - name: Download OSSEC Web UI from GitHub
+      get_url:
+        url: https://github.com/ossec/ossec-wui/archive/master.zip
+        dest: "{{ ossec_webui_zip }}"
+
+    - name: Unzip OSSEC Web UI
+      unarchive:
+        src: "{{ ossec_webui_zip }}"
+        dest: /tmp/
+        remote_src: yes
+
+    - name: Move OSSEC Web UI to apache directory
+      command: mv /tmp/ossec-wui-master "{{ ossec_webui_dir }}"
+      args:
+        creates: "{{ ossec_webui_dir }}"
+
+    - name: Set permissions on web root
+      file:
+        path: "{{ ossec_webui_dir }}"
+        owner: www-data
+        group: www-data
+        recurse: yes
+
+    - name: Run OSSEC Web UI setup script via expect
+      expect:
+        command: ./setup.sh
+        chdir: "{{ ossec_webui_dir }}"
+        responses:
+          'Username:'                              : "{{ ossec_webui_admin_user }}"
+          'New password:'                          : "{{ ossec_webui_admin_pass }}"
+          'Re-type new password:'                  : "{{ ossec_webui_admin_pass }}"
+          'Enter your web server user name.*'      : "www-data"
+      register: webui_setup
+
+    - name: Restart Apache
+      service:
+        name: apache2
+        state: restarted
+
+    - name: Show setup result
+      debug:
+        var: webui_setup.stdout_lines

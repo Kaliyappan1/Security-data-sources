@@ -1,0 +1,12 @@
+---
+- name: Wait for instance to fully boot
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Pause for 20 seconds
+      ansible.builtin.pause:
+        seconds: 20
+
+- import_playbook: playbooks/mysql-setup.yml
+- import_playbook: playbooks/mysql-database-creation.yml

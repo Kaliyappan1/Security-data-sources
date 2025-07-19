@@ -1,0 +1,73 @@
+---
+- name: Install and start Syslog-ng on RHEL 9
+  hosts: syslog
+  become: true
+
+  vars:
+    epel_url: "https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm"
+    epel_gpg_key: "https://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-9"
+    syslog_copr_repo_url: "https://copr.fedorainfracloud.org/coprs/czanik/syslog-ng336/repo/epel-8/czanik-syslog-ng41-epel-8.repo"
+    syslog_copr_repo_path: "/etc/yum.repos.d/czanik-syslog-ng41-epel-8.repo"
+
+  tasks:
+
+    - name: Enable RHEL CodeReady Builder repo
+      command: >
+        subscription-manager repos --enable codeready-builder-for-rhel-9-noarch-rpms
+      register: repo_result
+      changed_when: "'enabled' in repo_result.stdout"
+      failed_when: repo_result.rc != 0 and "'enabled' not in repo_result.stdout"
+      ignore_errors: true
+
+    - name: Import EPEL GPG key
+      rpm_key:
+        state: present
+        key: "{{ epel_gpg_key }}"
+
+    - name: Install EPEL release
+      dnf:
+        name: "{{ epel_url }}"
+        state: present
+
+    - name: Ensure wget is installed
+      dnf:
+        name: wget
+        state: present
+    
+    - name: Ensure net-tools is installed (for netstat)
+      dnf:
+        name: net-tools
+        state: present
+    
+    - name: Ensure tcpdump is installed (for traffic verification)
+      dnf:
+        name: tcpdump
+        state: present
+
+    - name: Download syslog-ng COPR repo file
+      get_url:
+        url: "{{ syslog_copr_repo_url }}"
+        dest: "{{ syslog_copr_repo_path }}"
+        mode: '0644'
+
+    - name: Install syslog-ng using --nobest
+      dnf:
+        name: syslog-ng
+        state: present
+        allowerasing: true
+        nobest: true
+
+    - name: Enable and start syslog-ng service
+      systemd:
+        name: syslog-ng
+        enabled: true
+        state: started
+
+    - name: Check syslog-ng service status
+      command: systemctl status syslog-ng
+      register: syslog_status
+      changed_when: false
+
+    - name: Show syslog-ng status output
+      debug:
+        var: syslog_status.stdout_lines

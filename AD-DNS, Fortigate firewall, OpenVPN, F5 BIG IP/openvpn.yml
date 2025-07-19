@@ -1,0 +1,31 @@
+- name: Automate OpenVPN First-Time Setup
+  hosts: openvpn_servers
+  become: yes  # No need for sudo since 'openvpnas' user runs it directly
+  become_user: root  # Switches to 'openvpnas' user
+  tasks:
+
+    - name: Run OpenVPN Initial Setup as openvpnas
+      expect:
+        command: /usr/local/openvpn_as/bin/ovpn-init
+        responses:
+          "Please enter 'yes' to indicate your agreement \\[no\\]": "yes"
+          "Press ENTER for default \\[yes\\]": "\n"
+          "Press Enter for default \\[1\\]": "\n"
+          "Press ENTER for default \\[secp384r1\\]": "\n"
+          "Press ENTER for default \\[secp384r1\\]": "\n"
+          "Press ENTER for default \\[943\\]": "\n"
+          "Press ENTER for default \\[443\\]": "\n"
+          "Press ENTER for default \\[no\\]": "\n"
+          "Press ENTER for default \\[no\\]": "\n"
+          "Press ENTER for EC2 default \\[yes\\]": "\n"
+          "Press ENTER for default \\[yes\\]": "\n"
+          "Type a password for the 'openvpn' account.*": "SoftMania123!"
+          "Confirm the password for the 'openvpn' account.*": "SoftMania123!"
+          "Please specify your Activation key.*": "\n"
+
+    - name: Restart OpenVPN Service
+      become: yes  # Need root to restart service
+      become_user: root
+      systemd:
+        name: openvpnas
+        state: restarted
