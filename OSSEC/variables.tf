@@ -23,4 +23,6 @@ variable "ossec_webui_admin_user" {
   type        = string
 }
 
-
+variable "usermail" {
+  type        = string
+}

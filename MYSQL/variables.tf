@@ -26,3 +26,6 @@ variable "splunk_user" {
 variable "splunk_user_password" {
   type        = string
 }
+variable "usermail" {
+  type        = string
+}
