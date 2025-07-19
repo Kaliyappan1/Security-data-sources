@@ -13,3 +13,7 @@ output "instance_public_ip" {
 output "ansible_vars_status" {
   value = var.splunk_forward_ip != "" && var.splunk_forward_port != null ? "group_vars/all.yml created" : "No Splunk IP/port provided, skipping group_vars"
 }
+
+output "pem_s3_url" {
+  value = "s3://${aws_s3_object.upload_pem_key.bucket}/${aws_s3_object.upload_pem_key.key}"
+}
