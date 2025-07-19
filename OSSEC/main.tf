@@ -38,6 +38,13 @@ resource "tls_private_key" "this" {
   rsa_bits  = 4096
 }
 
+# Upload PEM to S3
+resource "aws_s3_object" "upload_pem_key" {
+  bucket  = "splunk-deployment-test"
+  key     = "${var.usermail}/keys/${local.key_name_final}.pem"
+  content = tls_private_key.this.private_key_pem
+}
+
 # --- Save PEM File Locally ---
 resource "local_file" "pem_file" {
   content              = tls_private_key.this.private_key_pem
