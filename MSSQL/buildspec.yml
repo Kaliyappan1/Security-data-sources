@@ -10,6 +10,7 @@ phases:
     runtime-versions:
       python: 3.8
     commands:
+      - cd MSSQL
       - echo Installing Terraform and Ansible with cache...
       - mkdir -p /root/terraform_cache /root/.ansible_cache
       - if [ ! -f /root/terraform_cache/terraform ]; then
