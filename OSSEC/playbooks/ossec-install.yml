@@ -65,28 +65,27 @@
         dest: /opt/
         remote_src: yes
 
+    - name: Create preloaded-vars.conf
+      copy:
+        dest: "/opt/ossec-hids-3.7.0/etc/preloaded-vars.conf"
+        content: |
+          USER_LANGUAGE="en"
+          INSTALL_TYPE="local"
+          DIR="/var/ossec"
+          EMAIL_NOTIFICATION="yes"
+          EMAIL_TO="root@localhost"
+          SMTP_SERVER="localhost"
+          EMAIL_FROM="ossec@localhost"
+          SYS_CHECK="yes"
+          ROOTKIT="yes"
+          ACTIVE_RESPONSE="yes"
+          FIREWALL_DROP="yes"
+          WHITE_LIST="no"
 
-    - name: Run OSSEC install.sh interactively via expect
-      expect:
-        command: ./install.sh
+    - name: Run OSSEC install non-interactively
+      command: ./install.sh
+      args:
         chdir: /opt/ossec-hids-3.7.0
-        timeout: 600
-        responses:
-          '.*\) \[en\]:'                                       : "en"
-          'Press ENTER to continue.*'                          : ""
-          'What kind of installation.*'                        : "local"
-          'Choose where to install the OSSEC HIDS.*'           : ""
-          'Do you want e-mail notification.*'                  : "y"
-          "What's your e-mail address.*"                       : "root@localhost"
-          'Do you want to use it.*'                            : "y"
-          'Do you want to run the integrity check daemon.*'    : "y"
-          'Do you want to run the rootkit detection engine.*'  : "y"
-          'Do you want to enable active response.*'            : "y"
-          'Do you want to enable the firewall-drop response.*' : "y"
-          'Do you want to add more IPs to the white list.*'    : "n"
-          '--- Press ENTER to continue ---'                    : ""
-          '---  Press ENTER to finish.*'                       : ""
-      register: ossec_install_result
 
     - name: Start OSSEC service
       command: /var/ossec/bin/ossec-control start
