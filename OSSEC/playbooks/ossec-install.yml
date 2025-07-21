@@ -56,7 +56,7 @@
 
     - name: Download OSSEC tarball
       get_url:
-        url: "https://github.com/ossec/ossec-hids/archive/refs/tags/{{ ossec_version }}.tar.gz"
+        url: https://github.com/ossec/ossec-hids/archive/refs/tags/3.7.0.tar.gz
         dest: /opt/ossec.tar.gz
 
     - name: Extract OSSEC tarball
@@ -65,52 +65,28 @@
         dest: /opt/
         remote_src: yes
 
-    - name: Copy interactive expect script for OSSEC install
-      copy:
-        dest: /opt/install_ossec.expect
-        mode: '0755'
-        content: |
-          #!/usr/bin/expect -f
-          set timeout 600
-          cd /opt/ossec-hids-3.7.0
-          spawn ./install.sh
-          expect "en]:"
-          send "en\r"
-          expect "Press ENTER to continue"
-          send "\r"
-          expect "What kind of installation"
-          send "local\r"
-          expect "Choose where to install"
-          send "\r"
-          expect "Do you want e-mail notification"
-          send "y\r"
-          expect "What's your e-mail address"
-          send "root@localhost\r"
-          expect "Do you want to use it"
-          send "y\r"
-          expect "Do you want to run the integrity check daemon"
-          send "y\r"
-          expect "Do you want to run the rootkit detection engine"
-          send "y\r"
-          expect "Do you want to enable active response"
-          send "y\r"
-          expect "Do you want to enable the firewall-drop response"
-          send "y\r"
-          expect "Do you want to add more IPs to the white list"
-          send "n\r"
-          expect "--- Press ENTER to continue ---"
-          send "\r"
-          expect "---  Press ENTER to finish ---"
-          send "\r"
-          expect eof
 
-    - name: Run OSSEC install.sh using expect
-      command: /opt/install_ossec.expect
-      register: ossec_install_output
-
-    - name: Show install result
-      debug:
-        var: ossec_install_output.stdout_lines
+    - name: Run OSSEC install.sh interactively via expect
+      expect:
+        command: ./install.sh
+        chdir: /opt/ossec-hids-3.7.0
+        timeout: 600
+        responses:
+          '.*\) \[en\]:'                                       : "en"
+          'Press ENTER to continue.*'                          : ""
+          'What kind of installation.*'                        : "local"
+          'Choose where to install the OSSEC HIDS.*'           : ""
+          'Do you want e-mail notification.*'                  : "y"
+          "What's your e-mail address.*"                       : "root@localhost"
+          'Do you want to use it.*'                            : "y"
+          'Do you want to run the integrity check daemon.*'    : "y"
+          'Do you want to run the rootkit detection engine.*'  : "y"
+          'Do you want to enable active response.*'            : "y"
+          'Do you want to enable the firewall-drop response.*' : "y"
+          'Do you want to add more IPs to the white list.*'    : "n"
+          '--- Press ENTER to continue ---'                    : ""
+          '---  Press ENTER to finish.*'                       : ""
+      register: ossec_install_result
 
     - name: Start OSSEC service
       command: /var/ossec/bin/ossec-control start
@@ -123,3 +99,4 @@
     - name: Print OSSEC status
       debug:
         var: ossec_status.stdout_lines
+
