@@ -129,6 +129,14 @@ resource "aws_instance" "mssql" {
 
   tags = {
     Name = "MSSQL"
+    AutoStop      = true
+    ServiceType   = var.servicetype
+    Owner         = var.usermail
+    UserEmail     = var.usermail
+    RunQuotaHours = var.quotahours
+    HoursPerDay   = var.hoursperday
+    Category      = var.category
+    PlanStartDate = var.planstartdate
   }
 
    # ✅ Install Python3 automatically at boot
