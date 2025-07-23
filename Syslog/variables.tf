@@ -14,19 +14,6 @@ variable "sg_name" {
   type        = string
   default     = "syslog-sg"
 }
-
-variable "splunk_forward_ip" {
-  type        = string
-  default     = ""
-  description = "Optional: IP address of the Splunk forwarder"
-}
-
-variable "splunk_forward_port" {
-  type        = number
-  default     = null
-  description = "Optional: TCP port to forward logs to Splunk"
-}
-
 variable "usermail" {
   type        = string
 }

@@ -1,13 +1,3 @@
----
-- name: Wait for instance to fully boot
-  hosts: localhost
-  connection: local
-  gather_facts: false
-  tasks:
-    - name: Pause for 10 seconds
-      ansible.builtin.pause:
-        seconds: 10
-
 - name: Jenkins Installation on RHEL 8/9 (Production Ready)
   hosts: jenkins
   become: yes

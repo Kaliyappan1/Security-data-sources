@@ -4,8 +4,8 @@
   connection: local
   gather_facts: false
   tasks:
-    - name: Pause for 20 seconds
+    - name: Pause for 10 seconds
       ansible.builtin.pause:
-        seconds: 20
+        seconds: 10
 
-- import_playbook: playbooks/install_syslog.yml
+- import_playbook: playbooks/jenkins-setup.yml

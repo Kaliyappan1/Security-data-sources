@@ -141,17 +141,3 @@ resource "local_file" "ansible_inventory" {
   EOT
   filename = "${path.module}/inventory.ini"
 }
-
-resource "local_file" "ansible_vars" {
-  count = var.splunk_forward_ip != "" && var.splunk_forward_port != null ? 1 : 0
-
-  content = <<-EOT
-  ---
-  splunk_forward_ip: "${var.splunk_forward_ip}"
-  splunk_forward_port: ${var.splunk_forward_port}
-  EOT
-
-  filename        = "${path.module}/group_vars/all.yml"
-  file_permission = "0644"
-}
-
