@@ -40,10 +40,16 @@ phases:
   build:
     commands:
       - terraform init
+      - chmod +x scripts/check_key.sh
       - terraform apply -auto-approve
+      - echo "✅ Build phase complete."
+      - export INSTANCE_ID=$(terraform output -raw instance_id)
+      - echo $INSTANCE_ID > instance_id.txt
       - echo "Running Ansible Playbook..."
       - ansible-playbook -i inventory.ini main.yml
 
   post_build:
     commands:
       - echo "EC2 Splunk + Ansible Deployment Completed Successfully!"
+      - chmod +x scripts/stop_instance.sh
+      - ./scripts/stop_instance.sh $(cat instance_id.txt)

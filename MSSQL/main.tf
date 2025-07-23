@@ -118,7 +118,7 @@ resource "aws_security_group" "mssql_sg" {
 resource "aws_instance" "mssql" {
   ami                    = data.aws_ami.rhel_sql.id
   instance_type          = "t3.xlarge"
-  key_name               = aws_key_pair.generated_key_pair.key_name
+  key_name = aws_key_pair.generated_key_pair.key_name
   vpc_security_group_ids = (
   length(data.aws_security_groups.existing.ids) > 0
     ? data.aws_security_groups.existing.ids

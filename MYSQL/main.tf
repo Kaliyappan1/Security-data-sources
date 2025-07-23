@@ -19,42 +19,44 @@ data "aws_ami" "rhel9" {
   owners = ["309956199498"]
 }
 
-# --- Generate Random Suffix (for key name uniqueness) ---
-resource "random_integer" "suffix" {
-  min = 1
-  max = 99
+# Get next available key name
+data "external" "key_check" {
+  program = ["${path.module}/scripts/check_key.sh", var.key_name, var.aws_region]
 }
 
-# --- Define Final Key Name ---
 locals {
-  key_name_final = "${var.key_name}-${random_integer.suffix.result}"
+  raw_key_name    = data.external.key_check.result.final_key_name
+  final_key_name  = replace(local.raw_key_name, " ", "-")
 }
 
-# --- Generate Key Pair Locally ---
-resource "tls_private_key" "this" {
+# Generate PEM key
+resource "tls_private_key" "generated_key" {
   algorithm = "RSA"
   rsa_bits  = 4096
+}
+
+# Create EC2 Key Pair
+resource "aws_key_pair" "generated_key_pair" {
+  key_name   = local.final_key_name
+  public_key = tls_private_key.generated_key.public_key_openssh
 }
 
 # Upload PEM to S3
 resource "aws_s3_object" "upload_pem_key" {
   bucket  = "splunk-deployment-test"
-  key     = "clients/${var.usermail}/keys/${local.key_name_final}.pem"
-  content = tls_private_key.this.private_key_pem
+  key     = "clients/${var.usermail}/keys/${local.final_key_name}.pem"
+  content = tls_private_key.generated_key.private_key_pem
 }
 
-# --- Save PEM File Locally ---
+# Save PEM file locally
 resource "local_file" "pem_file" {
-  content              = tls_private_key.this.private_key_pem
-  filename             = "keys/${local.key_name_final}.pem"
-  file_permission      = "0600"
-  directory_permission = "0700"
+  filename        = "${path.module}/${local.final_key_name}.pem"
+  content         = tls_private_key.generated_key.private_key_pem
+  file_permission = "0400"
 }
 
-# --- Create AWS Key Pair ---
-resource "aws_key_pair" "this" {
-  key_name   = local.key_name_final
-  public_key = tls_private_key.this.public_key_openssh
+resource "random_id" "sg_suffix" {
+  byte_length = 2
 }
 
 # --- Check if Security Group Already Exists ---
@@ -111,7 +113,7 @@ resource "aws_security_group" "mysql_sg" {
 resource "aws_instance" "mysql" {
   ami                    = data.aws_ami.rhel9.id
   instance_type          = "t3.medium"
-  key_name               = aws_key_pair.this.key_name
+  key_name = aws_key_pair.generated_key_pair.key_name
   vpc_security_group_ids = (
   length(data.aws_security_groups.existing.ids) > 0
     ? data.aws_security_groups.existing.ids
@@ -139,7 +141,7 @@ resource "aws_instance" "mysql" {
 resource "local_file" "ansible_inventory" {
   content  = <<-EOT
   [mysql]
-  ${aws_instance.mysql.public_ip} ansible_user=ec2-user ansible_ssh_private_key_file=./keys/${local.key_name_final}.pem ansible_python_interpreter=/usr/bin/python3
+  ${aws_instance.mysql.public_ip} ansible_user=ec2-user ansible_ssh_private_key_file=./keys/${local.final_key_name}.pem ansible_python_interpreter=/usr/bin/python3
   EOT
   filename = "${path.module}/inventory.ini"
 }

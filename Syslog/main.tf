@@ -18,7 +18,6 @@ data "aws_ami" "rhel9_latest" {
 
   owners = ["309956199498"] # Red Hat official account
 }
-
 # --- Generate Random Suffix (for key name uniqueness) ---
 resource "random_integer" "suffix" {
   min = 1
@@ -117,7 +116,7 @@ resource "aws_security_group" "syslog_sg" {
 resource "aws_instance" "syslog" {
   ami                    = data.aws_ami.rhel9_latest.id
   instance_type          = "t3.medium"
-  key_name               = aws_key_pair.this.key_name
+  key_name = aws_key_pair.generated_key_pair.key_name
   vpc_security_group_ids = (
   length(data.aws_security_groups.existing.ids) > 0
     ? data.aws_security_groups.existing.ids
@@ -137,7 +136,7 @@ resource "aws_instance" "syslog" {
 resource "local_file" "ansible_inventory" {
   content  = <<-EOT
   [syslog]
-  ${aws_instance.syslog.public_ip} ansible_user=ec2-user ansible_ssh_private_key_file=./keys/${local.key_name_final}.pem ansible_python_interpreter=/usr/bin/python3
+  ${aws_instance.syslog.public_ip} ansible_user=ec2-user ansible_ssh_private_key_file=./keys/${local.final_key_name}.pem ansible_python_interpreter=/usr/bin/python3
   EOT
   filename = "${path.module}/inventory.ini"
 }

@@ -117,7 +117,7 @@ resource "aws_security_group" "ossec_sg" {
 resource "aws_instance" "ossec" {
   ami                    = data.aws_ami.ubuntu_latest.id
   instance_type          = "t3.medium"
-  key_name               = aws_key_pair.this.key_name
+  key_name = aws_key_pair.generated_key_pair.key_name
   vpc_security_group_ids = (
   length(data.aws_security_groups.existing.ids) > 0
     ? data.aws_security_groups.existing.ids
@@ -145,7 +145,7 @@ resource "aws_instance" "ossec" {
 resource "local_file" "ansible_inventory" {
   content  = <<-EOT
   [ossec]
-  ${aws_instance.ossec.public_ip} ansible_user=ubuntu ansible_ssh_private_key_file=./keys/${local.key_name_final}.pem ansible_python_interpreter=/usr/bin/python3
+  ${aws_instance.ossec.public_ip} ansible_user=ubuntu ansible_ssh_private_key_file=./keys/${local.final_key_name}.pem ansible_python_interpreter=/usr/bin/python3
   EOT
   filename = "${path.module}/inventory.ini"
 }
