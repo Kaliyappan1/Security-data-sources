@@ -18,43 +18,40 @@ data "aws_ami" "rhel9_latest" {
 
   owners = ["309956199498"] # Red Hat official account
 }
-
-# --- Generate Random Suffix (for key name uniqueness) ---
-resource "random_integer" "suffix" {
-  min = 1
-  max = 99
+# Get next available key name
+data "external" "key_check" {
+  program = ["${path.module}/scripts/check_key.sh", var.key_name, var.aws_region]
 }
 
-# --- Define Final Key Name ---
 locals {
-  key_name_final = "${var.key_name}-${random_integer.suffix.result}"
+  raw_key_name    = data.external.key_check.result.final_key_name
+  final_key_name  = replace(local.raw_key_name, " ", "-")
 }
 
-# --- Generate Key Pair Locally ---
-resource "tls_private_key" "this" {
+# Generate PEM key
+resource "tls_private_key" "generated_key" {
   algorithm = "RSA"
   rsa_bits  = 4096
+}
+
+# Create EC2 Key Pair
+resource "aws_key_pair" "generated_key_pair" {
+  key_name   = local.final_key_name
+  public_key = tls_private_key.generated_key.public_key_openssh
 }
 
 # Upload PEM to S3
 resource "aws_s3_object" "upload_pem_key" {
   bucket  = "splunk-deployment-test"
-  key     = "clients/${var.usermail}/keys/${local.key_name_final}.pem"
-  content = tls_private_key.this.private_key_pem
+  key     = "clients/${var.usermail}/keys/${local.final_key_name}.pem"
+  content = tls_private_key.generated_key.private_key_pem
 }
 
-# --- Save PEM File Locally ---
+# Save PEM file locally
 resource "local_file" "pem_file" {
-  content              = tls_private_key.this.private_key_pem
-  filename             = "keys/${local.key_name_final}.pem"
-  file_permission      = "0600"
-  directory_permission = "0700"
-}
-
-# --- Create AWS Key Pair ---
-resource "aws_key_pair" "this" {
-  key_name   = local.key_name_final
-  public_key = tls_private_key.this.public_key_openssh
+  filename        = "${path.module}/${local.final_key_name}.pem"
+  content         = tls_private_key.generated_key.private_key_pem
+  file_permission = "0400"
 }
 
 # --- Check if Security Group Already Exists ---
