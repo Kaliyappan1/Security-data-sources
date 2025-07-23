@@ -55,7 +55,7 @@ resource "aws_s3_object" "upload_pem_key" {
 
 # Save PEM file locally
 resource "local_file" "pem_file" {
-  filename        = "${path.module}/${local.final_key_name}.pem"
+  filename        = "${path.module}/keys/${local.final_key_name}.pem"
   content         = tls_private_key.generated_key.private_key_pem
   file_permission = "0400"
 }
