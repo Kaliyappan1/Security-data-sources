@@ -41,7 +41,18 @@ phases:
     commands:
       - terraform init
       - chmod +x scripts/check_key.sh
+
+      # 👉 Lock to avoid duplicate key pair creation
+      - echo "🔐 Running locking script to avoid duplicate key creation..."
+      - chmod +x scripts/pre_terraform_lock.py
+      - python3 scripts/pre_terraform_lock.py
+
       - terraform apply -auto-approve
+
+      # ✅ Remove lock after success
+      - echo "🧹 Removing lock after Terraform apply..."
+      - aws s3 rm s3://splunk-deployment-test/clients/$TF_VAR_usermail/key-lock.json --region $TF_VAR_aws_region
+
       - echo "✅ Build phase complete."
       - export INSTANCE_ID=$(terraform output -raw instance_id)
       - echo $INSTANCE_ID > instance_id.txt
