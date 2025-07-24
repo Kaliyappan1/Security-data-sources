@@ -20,7 +20,13 @@ data "aws_ami" "rhel9" {
 }
 # Get next available key name
 data "external" "check_key" {
-  program = ["bash", "${path.module}/scripts/check_key.sh", var.key_name, var.aws_region]
+  program = [
+    "bash",
+    "${path.module}/scripts/check_key.sh",
+    var.key_name,
+    var.aws_region,
+    var.usermail
+  ]
 }
 
 locals {
@@ -30,36 +36,38 @@ locals {
 
 # Generate PEM key
 resource "tls_private_key" "generated_key" {
-  count = data.external.check_key.result.exists ? 0 : 1
+  count    = data.external.check_key.result["exists"] == "false" ? 1 : 0
   algorithm = "RSA"
   rsa_bits  = 4096
 }
 
 # Create EC2 Key Pair
 resource "aws_key_pair" "generated_key_pair" {
-  depends_on = [data.external.check_key]
+  count = data.external.check_key.result["exists"] == "false" ? 1 : 0
 
-  count      = data.external.check_key.result.exists ? 0 : 1
-  key_name   = local.final_key_name
+  key_name   = data.external.check_key.result["final_key_name"]
   public_key = tls_private_key.generated_key[0].public_key_openssh
 }
 
 # Upload PEM to S3
 resource "aws_s3_object" "upload_pem_key" {
-  depends_on = [aws_key_pair.generated_key_pair]
-
-  bucket  = "splunk-deployment-test"
-  key     = "clients/${var.usermail}/keys/${local.final_key_name}.pem"
+  count  = data.external.check_key.result["exists"] == "false" ? 1 : 0
+  bucket = "splunk-deployment-test"
+  key    = "clients/${var.usermail}/keys/${data.external.check_key.result["final_key_name"]}.pem"
   content = tls_private_key.generated_key[0].private_key_pem
+
+  depends_on = [aws_key_pair.generated_key_pair]
 }
 
 # Save PEM file locally
 resource "local_file" "pem_file" {
-  depends_on = [aws_key_pair.generated_key_pair]
+  count = data.external.check_key.result["exists"] == "false" ? 1 : 0
 
-  filename        = "${path.module}/keys/${local.final_key_name}.pem"
+  filename        = "${path.module}/keys/${data.external.check_key.result["final_key_name"]}.pem"
   content         = tls_private_key.generated_key[0].private_key_pem
   file_permission = "0400"
+
+  depends_on = [aws_key_pair.generated_key_pair]
 }
 
 # --- Check if Security Group Already Exists ---
