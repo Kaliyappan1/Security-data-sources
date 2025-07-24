@@ -1,39 +1,55 @@
 #!/bin/bash
 
-KEY_NAME=$1
-AWS_REGION=$2
+set -euo pipefail
 
-# Get all existing key names starting with the given prefix
-EXISTING_KEYS=$(aws ec2 describe-key-pairs \
-    --region "$AWS_REGION" \
-    --query "KeyPairs[?starts_with(KeyName, \`$KEY_NAME\`)].KeyName" \
-    --output text)
+# Redirect all non-JSON output to stderr
+exec 3>&1
+exec 1>&2
 
-# If no existing keys, return the original key name
-if [ -z "$EXISTING_KEYS" ]; then
-    echo "{\"final_key_name\":\"$KEY_NAME\"}"
-    exit 0
+KEY_NAME="$1"
+AWS_REGION="$2"
+USERMAIL="$3"
+LOCAL_KEY_DIR="$4"
+BUCKET="splunk-deployment-test"
+
+# Clean up key name (replace spaces with hyphens)
+CLEAN_KEY_NAME=$(echo "$KEY_NAME" | tr ' ' '-')
+
+# Output JSON function
+output_json() {
+  echo "{\"final_key_name\": \"$CLEAN_KEY_NAME\", \"exists\": \"$1\", \"error\": \"$2\"}" >&3
+}
+
+# Validate inputs
+if [[ -z "$KEY_NAME" || -z "$AWS_REGION" || -z "$USERMAIL" || -z "$LOCAL_KEY_DIR" ]]; then
+  output_json "false" "Missing required arguments"
+  exit 1
 fi
 
-# Initialize max_suffix
-max_suffix=0
+# S3 key path
+S3_KEY_PATH="clients/${USERMAIL}/keys/${CLEAN_KEY_NAME}.pem"
 
-for key in $EXISTING_KEYS; do
-    if [[ "$key" == "$KEY_NAME" ]]; then
-        # base key exists without suffix
-        if [ "$max_suffix" -eq 0 ]; then
-            max_suffix=0
-        fi
-    elif [[ "$key" =~ ^$KEY_NAME-([0-9]+)$ ]]; then
-        suffix="${BASH_REMATCH[1]}"
-        if [ "$suffix" -gt "$max_suffix" ]; then
-            max_suffix=$suffix
-        fi
-    fi
-done
-
-# Suggest next key name
-next_suffix=$((max_suffix + 1))
-next_key_name="${KEY_NAME}-${next_suffix}"
-
-echo "{\"final_key_name\":\"$next_key_name\"}"
+# Check if key exists in S3
+if aws s3api head-object --bucket "$BUCKET" --key "$S3_KEY_PATH" --region "$AWS_REGION" >/dev/null 2>&1; then
+  # Key exists in S3 - download it
+  mkdir -p "$LOCAL_KEY_DIR" || {
+    output_json "false" "Failed to create local directory"
+    exit 1
+  }
+  
+  if aws s3 cp "s3://${BUCKET}/${S3_KEY_PATH}" "${LOCAL_KEY_DIR}/${CLEAN_KEY_NAME}.pem" --region "$AWS_REGION" >/dev/null 2>&1; then
+    chmod 0400 "${LOCAL_KEY_DIR}/${CLEAN_KEY_NAME}.pem" || {
+      output_json "false" "Failed to set key permissions"
+      exit 1
+    }
+    output_json "true" ""
+    exit 0
+  else
+    output_json "false" "Failed to download key from S3"
+    exit 1
+  fi
+else
+  # Key doesn't exist in S3
+  output_json "false" ""
+  exit 0
+fi

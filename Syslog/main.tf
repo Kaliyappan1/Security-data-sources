@@ -19,46 +19,66 @@ data "aws_ami" "rhel9_latest" {
   owners = ["309956199498"] # Red Hat official account
 }
 
-# Get next available key name
-data "external" "key_check" {
-  program = ["${path.module}/scripts/check_key.sh", var.key_name, var.aws_region]
+
+# Get key information and check existence
+data "external" "check_key" {
+  program = [
+    "bash",
+    "${path.module}/scripts/check_key.sh",
+    var.key_name,
+    var.aws_region,
+    var.usermail,
+    "${path.module}/keys"
+  ]
 }
 
 locals {
-  raw_key_name    = data.external.key_check.result.final_key_name
-  final_key_name  = replace(local.raw_key_name, " ", "-")
+  key_check_error = try(data.external.check_key.result.error, "")
+  key_check_failed = local.key_check_error != "" ? (
+    error("Key check failed: ${local.key_check_error}")
+  ) : false
+  
+  final_key_name  = data.external.check_key.result.final_key_name
+  key_exists      = data.external.check_key.result["exists"] == "true"
 }
 
-# Generate PEM key
+# Generate PEM key only if it doesn't exist
 resource "tls_private_key" "generated_key" {
+  count     = local.key_exists ? 0 : 1
   algorithm = "RSA"
   rsa_bits  = 4096
 }
 
-# Create EC2 Key Pair
+# Create EC2 Key Pair with explicit depends_on
 resource "aws_key_pair" "generated_key_pair" {
-  depends_on = [data.external.key_check]
+  count = local.key_exists ? 0 : 1
 
   key_name   = local.final_key_name
-  public_key = tls_private_key.generated_key.public_key_openssh
+  public_key = tls_private_key.generated_key[0].public_key_openssh
+
+  # Ensure we wait for the key to be fully created
+  depends_on = [tls_private_key.generated_key]
 }
 
-# Upload PEM to S3
+# Upload PEM to S3 only if it's a new key
 resource "aws_s3_object" "upload_pem_key" {
-  depends_on = [aws_key_pair.generated_key_pair]
+  count  = local.key_exists ? 0 : 1
+  bucket = "splunk-deployment-test"
+  key    = "clients/${var.usermail}/keys/${local.final_key_name}.pem"
+  content = tls_private_key.generated_key[0].private_key_pem
 
-  bucket  = "splunk-deployment-test"
-  key     = "clients/${var.usermail}/keys/${local.final_key_name}.pem"
-  content = tls_private_key.generated_key.private_key_pem
+  depends_on = [aws_key_pair.generated_key_pair]
 }
 
-# Save PEM file locally
+# Save PEM file locally only if it's a new key
 resource "local_file" "pem_file" {
-  depends_on = [aws_key_pair.generated_key_pair]
+  count = local.key_exists ? 0 : 1
 
   filename        = "${path.module}/keys/${local.final_key_name}.pem"
-  content         = tls_private_key.generated_key.private_key_pem
+  content         = tls_private_key.generated_key[0].private_key_pem
   file_permission = "0400"
+
+  depends_on = [aws_key_pair.generated_key_pair]
 }
 
 # --- Check if Security Group Already Exists ---
@@ -121,7 +141,7 @@ resource "aws_security_group" "syslog_sg" {
 resource "aws_instance" "syslog" {
   ami                    = data.aws_ami.rhel9_latest.id
   instance_type          = "t3.medium"
-  key_name = aws_key_pair.generated_key_pair.key_name
+  key_name               = data.external.check_key.result.final_key_name
   vpc_security_group_ids = (
   length(data.aws_security_groups.existing.ids) > 0
     ? data.aws_security_groups.existing.ids
@@ -131,6 +151,11 @@ resource "aws_instance" "syslog" {
   root_block_device {
     volume_size = 30
   }
+
+  # Explicitly depend on key pair creation when it's a new key
+  depends_on = [
+    aws_key_pair.generated_key_pair
+  ]
 
   tags = {
     Name = "syslog"
