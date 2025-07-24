@@ -18,8 +18,6 @@ data "aws_ami" "ubuntu_latest" {
 
   owners = ["099720109477"] # Canonical
 }
-
-
 data "external" "check_key" {
   program = [
     "bash",
