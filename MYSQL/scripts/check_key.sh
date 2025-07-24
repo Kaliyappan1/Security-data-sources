@@ -18,11 +18,9 @@ USERMAIL="$3"
 LOCAL_KEY_DIR="$4"
 BUCKET="splunk-deployment-test"
 
-# Clean up key name (replace spaces and special characters with hyphens)
 CLEAN_KEY_NAME=$(echo "$KEY_NAME" | tr '[:space:]' '-' | tr -cd '[:alnum:]-')
-FINAL_KEY_NAME="$CLEAN_KEY_NAME"
 
-# Output JSON function
+# Function to output JSON
 output_json() {
   jq -n \
     --arg final_key_name "$FINAL_KEY_NAME" \
@@ -32,13 +30,13 @@ output_json() {
     '{final_key_name: $final_key_name, exists_in_s3: $exists_in_s3, exists_in_aws: $exists_in_aws, error: $error}' >&3
 }
 
-# Validate inputs
+# Input validation
 if [[ -z "$KEY_NAME" || -z "$AWS_REGION" || -z "$USERMAIL" || -z "$LOCAL_KEY_DIR" ]]; then
   output_json "false" "false" "Missing required arguments"
   exit 1
 fi
 
-# Check if AWS CLI is available
+# Check AWS CLI
 if ! command -v aws &> /dev/null; then
   output_json "false" "false" "AWS CLI is not installed"
   exit 1
@@ -50,63 +48,80 @@ if ! aws sts get-caller-identity --region "$AWS_REGION" >/dev/null 2>&1; then
   exit 1
 fi
 
-# Check if key exists in AWS and find a unique name if needed
-AWS_KEY_EXISTS="false"
-SUFFIX=0
-MAX_ATTEMPTS=99
+# === Attempt to use original name FIRST ===
+FINAL_KEY_NAME="$CLEAN_KEY_NAME"
+S3_KEY_PATH="clients/${USERMAIL}/keys/${FINAL_KEY_NAME}.pem"
 
-while [ "$SUFFIX" -le "$MAX_ATTEMPTS" ]; do
-  if [ "$SUFFIX" -eq 0 ]; then
-    TEST_NAME="$CLEAN_KEY_NAME"
-  else
-    TEST_NAME="${CLEAN_KEY_NAME}-${SUFFIX}"
-  fi
-  
-  if aws ec2 describe-key-pairs --key-names "$TEST_NAME" --region "$AWS_REGION" >/dev/null 2>&1; then
-    SUFFIX=$((SUFFIX + 1))
-  else
-    FINAL_KEY_NAME="$TEST_NAME"
-    break
-  fi
-done
-
-# If we've exhausted all attempts
-if [ "$SUFFIX" -gt "$MAX_ATTEMPTS" ]; then
-  output_json "false" "true" "Too many existing key pairs with similar names (tried up to ${CLEAN_KEY_NAME}-${MAX_ATTEMPTS})"
-  exit 1
-fi
-
-# S3 key path (using the original clean name for S3, not the potentially suffixed one)
-S3_KEY_PATH="clients/${USERMAIL}/keys/${CLEAN_KEY_NAME}.pem"
-
-# Check if key exists in S3
 S3_KEY_EXISTS="false"
+AWS_KEY_EXISTS="false"
+
+# Check if it exists in S3
 if aws s3api head-object --bucket "$BUCKET" --key "$S3_KEY_PATH" --region "$AWS_REGION" >/dev/null 2>&1; then
   S3_KEY_EXISTS="true"
-  
-  # Create local directory if it doesn't exist
+fi
+
+# Check if it exists in AWS
+if aws ec2 describe-key-pairs --key-names "$FINAL_KEY_NAME" --region "$AWS_REGION" >/dev/null 2>&1; then
+  AWS_KEY_EXISTS="true"
+fi
+
+# === If conflict in either S3 or AWS, then suffix ===
+if [ "$S3_KEY_EXISTS" = "true" ] || [ "$AWS_KEY_EXISTS" = "true" ]; then
+  SUFFIX=1
+  MAX_ATTEMPTS=99
+  while [ "$SUFFIX" -le "$MAX_ATTEMPTS" ]; do
+    TEST_NAME="${CLEAN_KEY_NAME}-${SUFFIX}"
+    S3_TEST_PATH="clients/${USERMAIL}/keys/${TEST_NAME}.pem"
+
+    S3_CONFLICT=false
+    AWS_CONFLICT=false
+
+    if aws s3api head-object --bucket "$BUCKET" --key "$S3_TEST_PATH" --region "$AWS_REGION" >/dev/null 2>&1; then
+      S3_CONFLICT=true
+    fi
+    if aws ec2 describe-key-pairs --key-names "$TEST_NAME" --region "$AWS_REGION" >/dev/null 2>&1; then
+      AWS_CONFLICT=true
+    fi
+
+    if [ "$S3_CONFLICT" = "false" ] && [ "$AWS_CONFLICT" = "false" ]; then
+      FINAL_KEY_NAME="$TEST_NAME"
+      S3_KEY_PATH="$S3_TEST_PATH"
+      break
+    fi
+
+    SUFFIX=$((SUFFIX + 1))
+  done
+
+  if [ "$SUFFIX" -gt "$MAX_ATTEMPTS" ]; then
+    output_json "$S3_KEY_EXISTS" "$AWS_KEY_EXISTS" "Too many existing key pairs with similar names"
+    exit 1
+  fi
+fi
+
+# Recalculate S3 existence for the FINAL_KEY_NAME
+if aws s3api head-object --bucket "$BUCKET" --key "$S3_KEY_PATH" --region "$AWS_REGION" >/dev/null 2>&1; then
+  S3_KEY_EXISTS="true"
+
   mkdir -p "$LOCAL_KEY_DIR" || {
-    output_json "$S3_KEY_EXISTS" "$AWS_KEY_EXISTS" "Failed to create local directory $LOCAL_KEY_DIR"
+    output_json "$S3_KEY_EXISTS" "$AWS_KEY_EXISTS" "Failed to create local dir"
     exit 1
   }
-  
-  # Download from S3
+
   if ! aws s3 cp "s3://${BUCKET}/${S3_KEY_PATH}" "${LOCAL_KEY_DIR}/${FINAL_KEY_NAME}.pem" --region "$AWS_REGION" >/dev/null 2>&1; then
     output_json "$S3_KEY_EXISTS" "$AWS_KEY_EXISTS" "Failed to download key from S3"
     exit 1
   fi
-  
-  # Set proper permissions
-  if ! chmod 0400 "${LOCAL_KEY_DIR}/${FINAL_KEY_NAME}.pem"; then
+
+  chmod 0400 "${LOCAL_KEY_DIR}/${FINAL_KEY_NAME}.pem" || {
     output_json "$S3_KEY_EXISTS" "$AWS_KEY_EXISTS" "Failed to set key permissions"
     exit 1
-  fi
-  
-  # Import the key to AWS if it doesn't exist
+  }
+
   if [ "$AWS_KEY_EXISTS" = "false" ]; then
-    if ! aws ec2 import-key-pair --key-name "$FINAL_KEY_NAME" \
-         --public-key-material "fileb://${LOCAL_KEY_DIR}/${FINAL_KEY_NAME}.pem" \
-         --region "$AWS_REGION" >/dev/null 2>&1; then
+    if ! aws ec2 import-key-pair \
+      --key-name "$FINAL_KEY_NAME" \
+      --public-key-material "fileb://${LOCAL_KEY_DIR}/${FINAL_KEY_NAME}.pem" \
+      --region "$AWS_REGION" >/dev/null 2>&1; then
       output_json "$S3_KEY_EXISTS" "$AWS_KEY_EXISTS" "Failed to import key to AWS"
       exit 1
     fi
