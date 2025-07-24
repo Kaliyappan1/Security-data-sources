@@ -18,7 +18,7 @@ data "aws_ami" "rhel9" {
 
   owners = ["309956199498"]
 }
-# Get next available key name
+# Get next available key name and check existence
 data "external" "check_key" {
   program = [
     "bash",
@@ -32,38 +32,39 @@ data "external" "check_key" {
 locals {
   raw_key_name    = data.external.check_key.result.final_key_name
   final_key_name  = replace(local.raw_key_name, " ", "-")
+  key_exists      = data.external.check_key.result["exists"] == "true"
 }
 
-# Generate PEM key
+# Generate PEM key only if it doesn't exist
 resource "tls_private_key" "generated_key" {
-  count    = data.external.check_key.result["exists"] == "false" ? 1 : 0
+  count     = local.key_exists ? 0 : 1
   algorithm = "RSA"
   rsa_bits  = 4096
 }
 
-# Create EC2 Key Pair
+# Create EC2 Key Pair only if it doesn't exist
 resource "aws_key_pair" "generated_key_pair" {
-  count = data.external.check_key.result["exists"] == "false" ? 1 : 0
+  count = local.key_exists ? 0 : 1
 
-  key_name   = data.external.check_key.result["final_key_name"]
-  public_key = tls_private_key.generated_key[0].public_key_openssh
+  key_name   = local.final_key_name
+  public_key = local.key_exists ? "" : tls_private_key.generated_key[0].public_key_openssh
 }
 
-# Upload PEM to S3
+# Upload PEM to S3 only if it's a new key
 resource "aws_s3_object" "upload_pem_key" {
-  count  = data.external.check_key.result["exists"] == "false" ? 1 : 0
+  count  = local.key_exists ? 0 : 1
   bucket = "splunk-deployment-test"
-  key    = "clients/${var.usermail}/keys/${data.external.check_key.result["final_key_name"]}.pem"
+  key    = "clients/${var.usermail}/keys/${local.final_key_name}.pem"
   content = tls_private_key.generated_key[0].private_key_pem
 
   depends_on = [aws_key_pair.generated_key_pair]
 }
 
-# Save PEM file locally
+# Save PEM file locally only if it's a new key
 resource "local_file" "pem_file" {
-  count = data.external.check_key.result["exists"] == "false" ? 1 : 0
+  count = local.key_exists ? 0 : 1
 
-  filename        = "${path.module}/keys/${data.external.check_key.result["final_key_name"]}.pem"
+  filename        = "${path.module}/keys/${local.final_key_name}.pem"
   content         = tls_private_key.generated_key[0].private_key_pem
   file_permission = "0400"
 
