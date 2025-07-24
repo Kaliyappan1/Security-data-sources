@@ -41,7 +41,7 @@ resource "aws_key_pair" "generated_key_pair" {
 
   count      = data.external.check_key.result.exists ? 0 : 1
   key_name   = local.final_key_name
-  public_key = tls_private_key.generated_key.public_key_openssh
+  public_key = tls_private_key.generated_key[0].public_key_openssh
 }
 
 # Upload PEM to S3
