@@ -38,7 +38,7 @@ S3_KEY="clients/${KEY_NAME}/keys/${KEY_NAME}.pem"
 aws s3api head-object --bucket "$S3_BUCKET" --key "$S3_KEY" --region "$AWS_REGION" >/dev/null 2>&1
 
 if [ $? -eq 0 ]; then
-    echo "{\"final_key_name\":\"$KEY_NAME\", \"exists\": true}"
+    echo "{\"final_key_name\":\"$KEY_NAME\", \"exists\": \"true\"}"
 else
-    echo "{\"final_key_name\":\"$final_key_name\", \"exists\": false}"
+    echo "{\"final_key_name\":\"$final_key_name\", \"exists\": \"false\"}"
 fi
