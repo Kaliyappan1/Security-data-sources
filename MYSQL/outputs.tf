@@ -10,8 +10,6 @@ output "pem_s3_url" {
   )
 }
 
-
-
 output "instance_id" {
   value = aws_instance.mysql.id
 }
