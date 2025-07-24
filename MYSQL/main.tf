@@ -48,19 +48,26 @@ data "external" "check_key" {
 }
 
 locals {
-  key_check_error = try(coalesce(data.external.check_key.result.error, ""), ""
+  # Fixed error handling with proper try() and coalesce() usage
+  key_check_error = try(coalesce(data.external.check_key.result.error, ""), "")
+  
+  # Properly formatted conditional
   key_check_failed = local.key_check_error != "" ? (
     error("Key check failed: ${local.key_check_error}")
   ) : false
   
+  # Clean key name handling with proper parentheses
   final_key_name = replace(
     try(data.external.check_key.result.final_key_name, var.key_name),
     " ", "-"
   )
   
-  s3_key_exists   = can(data.external.check_key.result.exists_in_s3) && data.external.check_key.result["exists_in_s3"] == "true"
-  aws_key_exists  = can(data.external.check_key.result.exists_in_aws) && data.external.check_key.result["exists_in_aws"] == "true"
-  need_new_key    = !(local.s3_key_exists || local.aws_key_exists)
+  # Boolean conversion with proper syntax
+  s3_key_exists = can(data.external.check_key.result.exists_in_s3) && data.external.check_key.result["exists_in_s3"] == "true"
+  aws_key_exists = can(data.external.check_key.result.exists_in_aws) && data.external.check_key.result["exists_in_aws"] == "true"
+  
+  # Corrected logic for new key creation
+  need_new_key = !(local.s3_key_exists || local.aws_key_exists)
 }
 
 # Key material generation
