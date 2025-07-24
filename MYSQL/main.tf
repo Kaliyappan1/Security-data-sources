@@ -37,7 +37,7 @@ resource "tls_private_key" "generated_key" {
 
 # Create EC2 Key Pair
 resource "aws_key_pair" "generated_key_pair" {
-  depends_on = [data.external.key_check]
+  depends_on = [data.external.check_key]
 
   count      = data.external.check_key.result.exists ? 0 : 1
   key_name   = local.final_key_name
