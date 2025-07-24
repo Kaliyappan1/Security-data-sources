@@ -25,13 +25,21 @@ data "external" "check_key" {
     "${path.module}/scripts/check_key.sh",
     var.key_name,
     var.aws_region,
-    var.usermail
+    var.usermail,
+    "${path.module}/keys"  # Pass the key directory path
   ]
 }
 
 locals {
+  key_check_error = try(data.external.check_key.result.error, "")
+  
+  # Fail if the script returned an error
+  key_check_failed = local.key_check_error != "" ? (
+    error("Key check failed: ${local.key_check_error}")
+  ) : false
+  
   raw_key_name    = data.external.check_key.result.final_key_name
-  final_key_name  = replace(local.raw_key_name, " ", "-")
+  final_key_name  = local.raw_key_name  # No need to replace now as script handles it
   key_exists      = data.external.check_key.result["exists"] == "true"
 }
 
