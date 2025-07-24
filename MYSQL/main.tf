@@ -103,6 +103,14 @@ resource "local_file" "pem_file" {
   depends_on = [aws_key_pair.generated_key_pair]
 }
 
+# --- Check if Security Group Already Exists ---
+data "aws_security_groups" "existing" {
+  filter {
+    name   = "group-name"
+    values = [var.sg_name]
+  }
+}
+
 # --- Create Security Group If Not Exists ---
 resource "aws_security_group" "mysql_sg" {
   count       = length(data.aws_security_groups.existing.ids) == 0 ? 1 : 0
