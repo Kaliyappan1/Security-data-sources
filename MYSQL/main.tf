@@ -19,8 +19,8 @@ data "aws_ami" "rhel9" {
   owners = ["309956199498"]
 }
 # Get next available key name
-data "external" "key_check" {
-  program = ["${path.module}/scripts/check_key.sh", var.key_name, var.aws_region]
+data "external" "check_key" {
+  program = ["bash", "${path.module}/scripts/check_key.sh", var.key_name, var.aws_region]
 }
 
 locals {
@@ -30,6 +30,7 @@ locals {
 
 # Generate PEM key
 resource "tls_private_key" "generated_key" {
+  count = data.external.check_key.result.exists ? 0 : 1
   algorithm = "RSA"
   rsa_bits  = 4096
 }
@@ -38,6 +39,7 @@ resource "tls_private_key" "generated_key" {
 resource "aws_key_pair" "generated_key_pair" {
   depends_on = [data.external.key_check]
 
+  count      = data.external.check_key.result.exists ? 0 : 1
   key_name   = local.final_key_name
   public_key = tls_private_key.generated_key.public_key_openssh
 }
@@ -114,7 +116,7 @@ resource "aws_security_group" "mysql_sg" {
 resource "aws_instance" "mysql" {
   ami                    = data.aws_ami.rhel9.id
   instance_type          = "t3.medium"
-  key_name = aws_key_pair.generated_key_pair.key_name
+  key_name               = data.external.check_key.result.final_key_name
   vpc_security_group_ids = (
   length(data.aws_security_groups.existing.ids) > 0
     ? data.aws_security_groups.existing.ids
