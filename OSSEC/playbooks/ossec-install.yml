@@ -95,6 +95,7 @@
       shell: /var/ossec/bin/ossec-control status
       register: ossec_status
       changed_when: false
+      failed_when: false
 
     - name: Print OSSEC status
       debug:
