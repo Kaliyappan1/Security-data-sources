@@ -59,15 +59,13 @@ while [ "$SUFFIX" -le "$MAX_ATTEMPTS" ]; do
   if [ "$SUFFIX" -eq 0 ]; then
     TEST_NAME="$CLEAN_KEY_NAME"
   else
-    TEST_NAME="${CLEAN_KEY_NAME}-$(printf "%02d" $SUFFIX)"
+    TEST_NAME="${CLEAN_KEY_NAME}-${SUFFIX}"
   fi
   
   if aws ec2 describe-key-pairs --key-names "$TEST_NAME" --region "$AWS_REGION" >/dev/null 2>&1; then
     SUFFIX=$((SUFFIX + 1))
   else
-    if [ "$SUFFIX" -ne 0 ]; then
-      FINAL_KEY_NAME="${CLEAN_KEY_NAME}-$(printf "%02d" $SUFFIX)"
-    fi
+    FINAL_KEY_NAME="$TEST_NAME"
     break
   fi
 done
