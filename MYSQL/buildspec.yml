@@ -30,6 +30,8 @@ phases:
           echo "Ansible already installed.";
         fi
       - ansible --version
+
+      # ✅ Install boto3 for Python
       - echo "Installing boto3..."
       - pip3 install boto3
 
@@ -44,23 +46,21 @@ phases:
       - terraform init
       - chmod +x scripts/check_key.sh
 
-      # 👉 Export tfvars values (with newline cleanup)
-      - echo "🔐 Exporting tfvars variables..."
-      - export TF_VAR_usermail=$(grep 'usermail' terraform.tfvars | cut -d '=' -f2 | tr -d ' "\n\r')
-      - export TF_VAR_key_name=$(grep 'key_name' terraform.tfvars | cut -d '=' -f2 | tr -d ' "\n\r')
-      - export TF_VAR_aws_region=$(grep 'aws_region' terraform.tfvars | cut -d '=' -f2 | tr -d ' "\n\r')
-
       # 👉 Lock to avoid duplicate key pair creation
       - echo "🔐 Running locking script to avoid duplicate key creation..."
       - chmod +x scripts/pre_terraform_lock.py
+      - export TF_VAR_usermail=$(grep 'usermail' terraform.tfvars | cut -d '=' -f2 | tr -d ' "')
+      - export TF_VAR_key_name=$(grep 'key_name' terraform.tfvars | cut -d '=' -f2 | tr -d ' "')
+      - export TF_VAR_aws_region=$(grep 'aws_region' terraform.tfvars | cut -d '=' -f2 | tr -d ' "' | tr -d '\r\n')
+      - echo "🔐 Running locking script to avoid duplicate key creation..."
       - python3 scripts/pre_terraform_lock.py
+
 
       - terraform apply -auto-approve
 
       # ✅ Remove lock after success
       - echo "🧹 Removing lock after Terraform apply..."
-      - echo "🧹 Deleting S3 lock: s3://splunk-deployment-test/clients/$TF_VAR_usermail/key-lock.json in region $TF_VAR_aws_region"
-      - aws s3 rm s3://splunk-deployment-test/clients/$TF_VAR_usermail/key-lock.json --region "$TF_VAR_aws_region"
+      - aws s3 rm s3://splunk-deployment-test/clients/$TF_VAR_usermail/key-lock.json --region $TF_VAR_aws_region
 
       - echo "✅ Build phase complete."
       - export INSTANCE_ID=$(terraform output -raw instance_id)
