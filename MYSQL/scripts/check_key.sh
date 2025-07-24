@@ -47,46 +47,74 @@ check_s3_key_exists() {
   fi
 }
 
-# Find a unique key name by adding integer suffix if needed
-FINAL_KEY_NAME="$CLEAN_KEY_NAME"
-counter=1
-while check_aws_key_exists "$FINAL_KEY_NAME" || check_s3_key_exists "$FINAL_KEY_NAME"; do
-  FINAL_KEY_NAME="${CLEAN_KEY_NAME}-${counter}"
-  ((counter++))
-done
+# Function to find highest existing suffix for a key
+find_highest_suffix() {
+  local base_name=$1
+  local max_suffix=0
+  
+  # Check AWS for existing keys with suffixes
+  aws ec2 describe-key-pairs --region "$AWS_REGION" --query "KeyPairs[?starts_with(KeyName, '${base_name}-')].KeyName" --output text | \
+  while read -r key; do
+    suffix=$(echo "$key" | sed "s/^${base_name}-//")
+    if [[ "$suffix" =~ ^[0-9]+$ ]] && [ "$suffix" -gt "$max_suffix" ]; then
+      max_suffix=$suffix
+    fi
+  done
+  
+  # Check S3 for existing keys with suffixes
+  aws s3api list-objects --bucket "$BUCKET" --prefix "clients/${USERMAIL}/keys/${base_name}-" --region "$AWS_REGION" --query "Contents[].Key" --output text | \
+  while read -r key; do
+    suffix=$(basename "$key" .pem | sed "s/^${base_name}-//")
+    if [[ "$suffix" =~ ^[0-9]+$ ]] && [ "$suffix" -gt "$max_suffix" ]; then
+      max_suffix=$suffix
+    fi
+  done
+  
+  echo $max_suffix
+}
 
-# Check if the final key name is different from the original (meaning it exists)
-AWS_KEY_EXISTS="false"
-S3_KEY_EXISTS="false"
+# Check if original key exists
+ORIGINAL_EXISTS_AWS=$(check_aws_key_exists "$CLEAN_KEY_NAME" && echo "true" || echo "false")
+ORIGINAL_EXISTS_S3=$(check_s3_key_exists "$CLEAN_KEY_NAME" && echo "true" || echo "false")
 
-if [[ "$FINAL_KEY_NAME" != "$CLEAN_KEY_NAME" ]]; then
-  # Check if original exists in AWS
-  if check_aws_key_exists "$CLEAN_KEY_NAME"; then
-    AWS_KEY_EXISTS="true"
+if [[ "$ORIGINAL_EXISTS_AWS" == "false" && "$ORIGINAL_EXISTS_S3" == "false" ]]; then
+  # No existing key - use original name
+  FINAL_KEY_NAME="$CLEAN_KEY_NAME"
+else
+  # Find the highest existing suffix
+  HIGHEST_SUFFIX=$(find_highest_suffix "$CLEAN_KEY_NAME")
+  
+  if [ "$HIGHEST_SUFFIX" -gt 0 ]; then
+    # Reuse the highest suffix
+    FINAL_KEY_NAME="${CLEAN_KEY_NAME}-${HIGHEST_SUFFIX}"
+    EXISTS_AWS=$(check_aws_key_exists "$FINAL_KEY_NAME" && echo "true" || echo "false")
+    EXISTS_S3=$(check_s3_key_exists "$FINAL_KEY_NAME" && echo "true" || echo "false")
+  else
+    # No existing suffixes - start with 1
+    FINAL_KEY_NAME="${CLEAN_KEY_NAME}-1"
+    EXISTS_AWS="false"
+    EXISTS_S3="false"
   fi
   
-  # Check if original exists in S3
-  if check_s3_key_exists "$CLEAN_KEY_NAME"; then
-    S3_KEY_EXISTS="true"
-    
-    # Download from S3 if it exists
+  # Try to download from S3 if it exists
+  if [[ "$EXISTS_S3" == "true" ]]; then
     mkdir -p "$LOCAL_KEY_DIR" || {
-      output_json "$S3_KEY_EXISTS" "$AWS_KEY_EXISTS" "Failed to create local directory"
+      output_json "$EXISTS_S3" "$EXISTS_AWS" "Failed to create local directory"
       exit 1
     }
     
-    S3_KEY_PATH="clients/${USERMAIL}/keys/${CLEAN_KEY_NAME}.pem"
+    S3_KEY_PATH="clients/${USERMAIL}/keys/${FINAL_KEY_NAME}.pem"
     if ! aws s3 cp "s3://${BUCKET}/${S3_KEY_PATH}" "${LOCAL_KEY_DIR}/${FINAL_KEY_NAME}.pem" --region "$AWS_REGION" >/dev/null 2>&1; then
-      output_json "$S3_KEY_EXISTS" "$AWS_KEY_EXISTS" "Failed to download key from S3"
+      output_json "$EXISTS_S3" "$EXISTS_AWS" "Failed to download key from S3"
       exit 1
     fi
     
     chmod 0400 "${LOCAL_KEY_DIR}/${FINAL_KEY_NAME}.pem" || {
-      output_json "$S3_KEY_EXISTS" "$AWS_KEY_EXISTS" "Failed to set key permissions"
+      output_json "$EXISTS_S3" "$EXISTS_AWS" "Failed to set key permissions"
       exit 1
     }
   fi
 fi
 
-output_json "$S3_KEY_EXISTS" "$AWS_KEY_EXISTS" ""
+output_json "$ORIGINAL_EXISTS_S3" "$ORIGINAL_EXISTS_AWS" ""
 exit 0
