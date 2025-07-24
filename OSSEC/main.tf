@@ -20,7 +20,6 @@ data "aws_ami" "ubuntu_latest" {
 }
 
 
-# Get key information and check existence
 data "external" "check_key" {
   program = [
     "bash",
@@ -39,30 +38,33 @@ locals {
   ) : false
   
   final_key_name  = data.external.check_key.result.final_key_name
-  key_exists      = data.external.check_key.result["exists"] == "true"
+  s3_key_exists   = data.external.check_key.result["exists_in_s3"] == "true"
+  aws_key_exists  = data.external.check_key.result["exists_in_aws"] == "true"
+  need_new_key    = !(local.s3_key_exists && local.aws_key_exists)
 }
 
-# Generate PEM key only if it doesn't exist
+# Generate PEM key only if needed
 resource "tls_private_key" "generated_key" {
-  count     = local.key_exists ? 0 : 1
+  count     = local.need_new_key ? 1 : 0
   algorithm = "RSA"
   rsa_bits  = 4096
 }
 
-# Create EC2 Key Pair with explicit depends_on
+# Create EC2 Key Pair only if needed
 resource "aws_key_pair" "generated_key_pair" {
-  count = local.key_exists ? 0 : 1
+  count = local.need_new_key ? 1 : 0
 
   key_name   = local.final_key_name
   public_key = tls_private_key.generated_key[0].public_key_openssh
 
-  # Ensure we wait for the key to be fully created
-  depends_on = [tls_private_key.generated_key]
+  lifecycle {
+    ignore_changes = [public_key]
+  }
 }
 
 # Upload PEM to S3 only if it's a new key
 resource "aws_s3_object" "upload_pem_key" {
-  count  = local.key_exists ? 0 : 1
+  count  = (local.need_new_key && !local.s3_key_exists) ? 1 : 0
   bucket = "splunk-deployment-test"
   key    = "clients/${var.usermail}/keys/${local.final_key_name}.pem"
   content = tls_private_key.generated_key[0].private_key_pem
@@ -72,7 +74,7 @@ resource "aws_s3_object" "upload_pem_key" {
 
 # Save PEM file locally only if it's a new key
 resource "local_file" "pem_file" {
-  count = local.key_exists ? 0 : 1
+  count = (local.need_new_key && !local.s3_key_exists) ? 1 : 0
 
   filename        = "${path.module}/keys/${local.final_key_name}.pem"
   content         = tls_private_key.generated_key[0].private_key_pem
@@ -152,9 +154,10 @@ resource "aws_instance" "ossec" {
     volume_size = 30
   }
 
-  # Explicitly depend on key pair creation when it's a new key
+  # Ensure we don't proceed if key creation failed
   depends_on = [
-    aws_key_pair.generated_key_pair
+    aws_key_pair.generated_key_pair,
+    aws_s3_object.upload_pem_key
   ]
 
   tags = {
