@@ -42,12 +42,16 @@ resource "tls_private_key" "generated_key" {
 
 # Create EC2 Key Pair
 resource "aws_key_pair" "generated_key_pair" {
+  depends_on = [data.external.key_check]
+
   key_name   = local.final_key_name
   public_key = tls_private_key.generated_key.public_key_openssh
 }
 
 # Upload PEM to S3
 resource "aws_s3_object" "upload_pem_key" {
+  depends_on = [aws_key_pair.generated_key_pair]
+
   bucket  = "splunk-deployment-test"
   key     = "clients/${var.usermail}/keys/${local.final_key_name}.pem"
   content = tls_private_key.generated_key.private_key_pem
@@ -55,13 +59,11 @@ resource "aws_s3_object" "upload_pem_key" {
 
 # Save PEM file locally
 resource "local_file" "pem_file" {
+  depends_on = [aws_key_pair.generated_key_pair]
+
   filename        = "${path.module}/keys/${local.final_key_name}.pem"
   content         = tls_private_key.generated_key.private_key_pem
   file_permission = "0400"
-}
-
-resource "random_id" "sg_suffix" {
-  byte_length = 2
 }
 
 # --- Check if Security Group Already Exists ---
