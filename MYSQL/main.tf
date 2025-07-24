@@ -18,7 +18,8 @@ data "aws_ami" "rhel9" {
 
   owners = ["309956199498"]
 }
-# Get next available key name and check existence
+
+# Get key information and check existence
 data "external" "check_key" {
   program = [
     "bash",
@@ -26,20 +27,17 @@ data "external" "check_key" {
     var.key_name,
     var.aws_region,
     var.usermail,
-    "${path.module}/keys"  # Pass the key directory path
+    "${path.module}/keys"
   ]
 }
 
 locals {
   key_check_error = try(data.external.check_key.result.error, "")
-  
-  # Fail if the script returned an error
   key_check_failed = local.key_check_error != "" ? (
     error("Key check failed: ${local.key_check_error}")
   ) : false
   
-  raw_key_name    = data.external.check_key.result.final_key_name
-  final_key_name  = local.raw_key_name  # No need to replace now as script handles it
+  final_key_name  = data.external.check_key.result.final_key_name
   key_exists      = data.external.check_key.result["exists"] == "true"
 }
 
@@ -50,12 +48,15 @@ resource "tls_private_key" "generated_key" {
   rsa_bits  = 4096
 }
 
-# Create EC2 Key Pair only if it doesn't exist
+# Create EC2 Key Pair with explicit depends_on
 resource "aws_key_pair" "generated_key_pair" {
   count = local.key_exists ? 0 : 1
 
   key_name   = local.final_key_name
-  public_key = local.key_exists ? "" : tls_private_key.generated_key[0].public_key_openssh
+  public_key = tls_private_key.generated_key[0].public_key_openssh
+
+  # Ensure we wait for the key to be fully created
+  depends_on = [tls_private_key.generated_key]
 }
 
 # Upload PEM to S3 only if it's a new key
@@ -143,6 +144,11 @@ resource "aws_instance" "mysql" {
   root_block_device {
     volume_size = 30
   }
+
+  # Explicitly depend on key pair creation when it's a new key
+  depends_on = [
+    aws_key_pair.generated_key_pair
+  ]
 
   tags = {
     Name = "MYSQL"
