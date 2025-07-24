@@ -19,17 +19,6 @@ data "aws_ami" "rhel9" {
   owners = ["309956199498"]
 }
 
-resource "aws_dynamodb_table" "key_creation_lock" {
-  name         = "KeyPairCreationLock"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "KeyName"
-
-  attribute {
-    name = "KeyName"
-    type = "S"
-  }
-}
-
 data "external" "check_key" {
   program = [
     "bash",
@@ -69,16 +58,6 @@ resource "aws_key_pair" "generated_key_pair" {
 
   lifecycle {
     ignore_changes = [public_key]
-  }
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      ${path.module}/scripts/create_key.sh \
-      "${local.final_key_name}" \
-      "${var.aws_region}" \
-      "${var.usermail}" \
-      "${path.module}/keys"
-    EOT
   }
 }
 
