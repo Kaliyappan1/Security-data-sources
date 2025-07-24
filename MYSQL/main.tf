@@ -50,7 +50,7 @@ resource "aws_s3_object" "upload_pem_key" {
 
   bucket  = "splunk-deployment-test"
   key     = "clients/${var.usermail}/keys/${local.final_key_name}.pem"
-  content = tls_private_key.generated_key.private_key_pem
+  content = tls_private_key.generated_key[0].private_key_pem
 }
 
 # Save PEM file locally
@@ -58,7 +58,7 @@ resource "local_file" "pem_file" {
   depends_on = [aws_key_pair.generated_key_pair]
 
   filename        = "${path.module}/keys/${local.final_key_name}.pem"
-  content         = tls_private_key.generated_key.private_key_pem
+  content         = tls_private_key.generated_key[0].private_key_pem
   file_permission = "0400"
 }
 
