@@ -1,0 +1,68 @@
+version: 0.2
+
+cache:
+  paths:
+    - /root/terraform_cache/**/*
+    - /root/.ansible_cache/**/*
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.8
+    commands:
+      - cd Splunk-DC-ec2-only
+      - echo Installing Terraform and Ansible, and boto3...
+      - mkdir -p /root/terraform_cache /root/.ansible_cache
+      - if [ ! -f /root/terraform_cache/terraform ]; then
+          echo "Terraform not in cache. Downloading..." &&
+          wget https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip &&
+          unzip terraform_1.5.7_linux_amd64.zip -d /root/terraform_cache &&
+          chmod +x /root/terraform_cache/terraform;
+        else
+          echo "Terraform found in cache.";
+        fi
+      - export PATH=$PATH:/root/terraform_cache
+      - terraform --version
+
+      # ✅ Install boto3 for Python
+      - echo "Installing boto3..."
+      - pip3 install boto3
+
+  pre_build:
+    commands:
+      - echo "Downloading dynamic tfvars from S3..."
+      - aws s3 cp s3://splunk-deployment-test/$TFVARS_S3_KEY terraform.tfvars
+      - echo "Pre-build phase complete."
+
+  build:
+    commands:
+      - terraform init
+      - chmod +x scripts/check_key.sh
+      # 👉 Lock to avoid duplicate key pair creation
+      - echo "🔐 Running locking script to avoid duplicate key creation..."
+      - chmod +x scripts/pre_terraform_lock.py
+      - export TF_VAR_usermail=$(grep 'usermail' terraform.tfvars | cut -d '=' -f2 | tr -d ' "')
+      - export TF_VAR_key_name=$(grep 'key_name' terraform.tfvars | cut -d '=' -f2 | tr -d ' "')
+      - export TF_VAR_aws_region=$(grep 'aws_region' terraform.tfvars | cut -d '=' -f2 | tr -d ' "' | tr -d '\r\n')
+      - echo "🔐 Running locking script to avoid duplicate key creation..."
+      - python3 scripts/pre_terraform_lock.py
+
+      - terraform apply -auto-approve
+
+      # ✅ Remove lock after success
+      - echo "🧹 Removing lock after Terraform apply..."
+      - aws s3 rm s3://splunk-deployment-test/clients/$TF_VAR_usermail/key-lock.json --region $TF_VAR_aws_region
+      
+      # Output instance IDs to file (as list)
+      - terraform output -json instance_id | jq -r '.[]' > instance_id.txt
+      - echo "✅ Build phase complete."
+
+  post_build:
+    commands:
+      - echo "EC2 Splunk + Ansible Deployment Completed Successfully!"
+      - chmod +x scripts/stop_instance.sh
+      # Loop through all instance IDs and stop each
+      - |
+        while read id; do
+          ./scripts/stop_instance.sh "$id"
+        done < instance_id.txt
