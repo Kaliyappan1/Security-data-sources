@@ -10,7 +10,7 @@ phases:
     runtime-versions:
       python: 3.8
     commands:
-      - cd Splunk-DNC-ec2-splunk
+      - cd Splunk-DNC-ec2-splunk_ansible
       - echo Installing Terraform and Ansible, and boto3...
       - mkdir -p /root/terraform_cache /root/.ansible_cache
       - if [ ! -f /root/terraform_cache/terraform ]; then
