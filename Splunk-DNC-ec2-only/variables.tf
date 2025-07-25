@@ -1,20 +1,20 @@
 variable "aws_region" {
-  description = "AWS region to deploy resources"
+  description = "AWS Region"
   type        = string
 }
 
 variable "instance_name" {
-  description = "Name of the EC2 instance"
+  description = "Base name for the EC2 instances"
   type        = string
 }
 
 variable "usermail" {
-  description = "User's email for tagging and key management"
+  description = "User email for tagging and S3 folder"
   type        = string
 }
 
 variable "key_name" {
-  description = "Name of the EC2 Key Pair"
+  description = "Base name for the key pair"
   type        = string
 }
 
@@ -24,30 +24,29 @@ variable "instance_type" {
 }
 
 variable "storage_size" {
-  description = "Size of the EBS volume in GB"
+  description = "Size of the root EBS volume"
   type        = number
 }
 
 variable "quotahours" {
-  description = "Total allowed running hours for the EC2 instance"
+  description = "Maximum allowed runtime hours"
   type        = number
 }
 
 variable "hoursperday" {
-  description = "Maximum allowed hours per day"
+  description = "Allowed hours per day"
   type        = number
 }
 
 variable "category" {
-  description = "Custom category for the instance"
+  description = "Instance category"
   type        = string
 }
 
 variable "planstartdate" {
-  description = "Start date of the EC2 plan in ISO format"
+  description = "Plan start date"
   type        = string
 }
-
 
 variable "servicetype" {
   type        = string
