@@ -47,3 +47,7 @@ variable "planstartdate" {
   description = "Start date of the EC2 plan in ISO format"
   type        = string
 }
+
+variable "servicetype" {
+  type        = string
+}
