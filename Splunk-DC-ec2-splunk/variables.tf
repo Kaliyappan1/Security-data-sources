@@ -1,46 +1,50 @@
 variable "aws_region" {
-  description = "The AWS region to deploy the resources in."
+  description = "AWS Region"
   type        = string
 }
 
 variable "instance_name" {
-  description = "The base name for the Splunk instances."
+  description = "Base name for the EC2 instances"
+  type        = string
+}
+
+variable "usermail" {
+  description = "User email for tagging and S3 folder"
+  type        = string
+}
+
+variable "key_name" {
+  description = "Base name for the key pair"
   type        = string
 }
 
 variable "instance_type" {
-  description = "The instance type for the Splunk servers."
+  description = "EC2 instance type"
   type        = string
-  default     = "t3.medium"
 }
 
 variable "storage_size" {
-  description = "The size of the root volume for the instances."
+  description = "Size of the root EBS volume"
   type        = number
-  default     = 30
-}
-
-variable "usermail" {
-  description = "The email of the user creating the infrastructure."
-  type        = string
 }
 
 variable "quotahours" {
-  description = "Run quota hours for the instances."
+  description = "Maximum allowed runtime hours"
+  type        = number
+}
+
+variable "hoursperday" {
+  description = "Allowed hours per day"
   type        = number
 }
 
 variable "category" {
-  description = "Category tag for the instance group."
+  description = "Instance category"
   type        = string
 }
 
 variable "planstartdate" {
-  description = "Plan start date tag for the instance group."
-  type        = string
-}
-
-variable "hoursperday" {
+  description = "Plan start date"
   type        = string
 }
 
