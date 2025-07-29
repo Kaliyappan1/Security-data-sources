@@ -6,6 +6,7 @@ cache:
     - /root/.ansible_cache/**/*
 
 phases:
+  install:
     commands:
       - cd Splunk-SE-ec2-splunk
       - echo Installing Terraform and Ansible, and boto3...
