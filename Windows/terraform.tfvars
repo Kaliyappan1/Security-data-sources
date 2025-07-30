@@ -1,0 +1,8 @@
+region             = "us-east-1"
+key_name           = kali
+usermail = "yappank17@gmail.com"
+quotahours     = "28"
+category       = "windows-400"
+planstartdate  = "{current_time}"
+hoursperday    = "2"
+servicetype    = "DataSources"

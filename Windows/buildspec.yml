@@ -7,10 +7,8 @@ cache:
 
 phases:
   install:
-    runtime-versions:
-      python: 3.8
     commands:
-      - cd OSSEC
+      - cd Windows
       - echo Installing Terraform and Ansible, and boto3...
       - mkdir -p /root/terraform_cache /root/.ansible_cache
       - if [ ! -f /root/terraform_cache/terraform ]; then
@@ -45,6 +43,7 @@ phases:
     commands:
       - terraform init
       - chmod +x scripts/check_key.sh
+      
       # 👉 Lock to avoid duplicate key pair creation
       - echo "🔐 Running locking script to avoid duplicate key creation..."
       - chmod +x scripts/pre_terraform_lock.py
