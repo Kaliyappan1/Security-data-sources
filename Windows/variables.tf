@@ -8,6 +8,12 @@ variable "key_name" {
   type        = string
 }
 
+variable "sg_name" {
+  description = "Security group name to check or create"
+  type        = string
+  default     = "windows-sg"
+}
+
 variable "usermail" {
   type        = string
 }

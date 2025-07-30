@@ -56,8 +56,16 @@ resource "local_file" "pem_file" {
   depends_on = [aws_key_pair.generated_key_pair]
 }
 
+# --- Check if Security Group Already Exists ---
+data "aws_security_groups" "existing" {
+  filter {
+    name   = "group-name"
+    values = [var.sg_name]
+  }
+}
 resource "aws_security_group" "Terraform-ad_dns-sg" {
-  name        = "Terraform-ad-dns-sg"
+  count       = length(data.aws_security_groups.existing.ids) == 0 ? 1 : 0
+  name        = var.sg_name
   description = "Security group for AD & DNS"
 
   dynamic "ingress" {
@@ -81,13 +89,15 @@ resource "aws_security_group" "Terraform-ad_dns-sg" {
 resource "aws_instance" "ad_dns" {
   ami                    = data.aws_ami.windows_2022.id
   instance_type          = "m4.large"
-  key_name               = local.final_key_name
+  key_name               = data.external.check_key.result.final_key_name
   associate_public_ip_address = true
   get_password_data      = true
 
-  security_groups = length(data.aws_security_groups.existing_ad_dns_sg.ids) > 0
-    ? [data.aws_security_groups.existing_ad_dns_sg.ids[0]]
-    : (var.AD_DNS ? [aws_security_group.Terraform-ad_dns-sg.name] : [])
+  vpc_security_group_ids = (
+  length(data.aws_security_groups.existing.ids) > 0
+    ? data.aws_security_groups.existing.ids
+    : [aws_security_group.Terraform-ad_dns-sg[0].id]
+)
 
   root_block_device {
     volume_size = 50
