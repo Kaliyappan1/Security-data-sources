@@ -1,5 +1,5 @@
 region             = "us-east-1"
-key_name           = kali
+key_name           = "kali"
 usermail = "yappank17@gmail.com"
 quotahours     = "28"
 category       = "windows-400"
