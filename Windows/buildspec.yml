@@ -7,8 +7,6 @@ cache:
 
 phases:
   install:
-    runtime-versions:
-      python: 3.8
     commands:
       - cd Windows
       - echo Installing Terraform and Ansible, and boto3...
@@ -32,8 +30,8 @@ phases:
       - ansible --version
 
       # ✅ Install boto3 for Python
-      - echo "Installing boto3..."
-      - pip3 install boto3
+      - echo "Installing boto3 and pywinrm..."
+      - pip3 install boto3 pywinrm
 
   pre_build:
     commands:
