@@ -115,7 +115,7 @@ resource "aws_instance" "ad_dns" {
   EOF
 
   tags = {
-    Name           = "Windows"
+    Name           = "Windows(AD&DNS)"
     AutoStop       = true
     ServiceType    = var.servicetype
     Owner          = var.usermail
