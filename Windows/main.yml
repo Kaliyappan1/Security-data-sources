@@ -1,4 +1,13 @@
 ---
+- name: Wait for instance to fully boot
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Pause for 20 seconds
+      ansible.builtin.pause:
+        seconds: 20
+
 - name: Configure AD DS and DNS on Windows Server 2022
   hosts: windows
   gather_facts: no
