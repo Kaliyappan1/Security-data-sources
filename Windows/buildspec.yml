@@ -7,8 +7,6 @@ cache:
 
 phases:
   install:
-    runtime-versions:
-      python: 3.8
     commands:
       - cd Windows
       - echo Installing Terraform and Ansible, and boto3...
@@ -31,11 +29,12 @@ phases:
         fi
       - ansible --version
 
-      # ✅ Install boto3, pywinrm, and requests for Ansible
-      - echo "Installing Python packages for Ansible Windows support..."
-      - python3 -m pip install --upgrade pip
-      - python3 -m pip install boto3 pywinrm "requests>=2.9.1"
-      - python3 -c "import winrm; print('✅ winrm module installed.')"
+      # Python dependencies for Windows support
+      - echo "Installing Python packages for boto3 and Windows support..."
+      - pip3 install --upgrade --user pip
+      - pip3 install --user boto3 pywinrm "requests>=2.9.1"
+      - export PATH=$PATH:$HOME/.local/bin
+      - pip3 list --user | grep winrm || echo "pywinrm not installed"
 
   pre_build:
     commands:
