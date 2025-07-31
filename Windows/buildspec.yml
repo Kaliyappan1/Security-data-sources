@@ -7,14 +7,10 @@ cache:
 
 phases:
   install:
+    runtime-versions:
+      python: 3.8
     commands:
       - cd Windows
-      - echo "Installing Python 3.8 from S3..."
-      - mkdir -p /opt/python38
-      - aws s3 cp s3://splunk-deployment-test/toolkits/python38.tar.gz /tmp/python38.tar.gz
-      - tar -xzf /tmp/python38.tar.gz -C /opt/python38
-      - export PATH="/opt/python38/bin:$PATH"
-
       - echo Installing Terraform and Ansible, and boto3...
       - mkdir -p /root/terraform_cache /root/.ansible_cache
       - if [ ! -f /root/terraform_cache/terraform ]; then
@@ -27,7 +23,6 @@ phases:
         fi
       - export PATH=$PATH:/root/terraform_cache
       - terraform --version
-
       - if ! ansible --version > /dev/null 2>&1; then
           echo "Installing Ansible..." &&
           yum install -y unzip wget ansible;
@@ -36,9 +31,9 @@ phases:
         fi
       - ansible --version
 
-      # ✅ Install boto3 for Python 3.8
-      - echo "Installing boto3 in Python 3.8..."
-      - pip3.8 install boto3
+      # ✅ Install boto3 for Python
+      - echo "Installing boto3..."
+      - pip3 install boto3
 
   pre_build:
     commands:
@@ -51,15 +46,19 @@ phases:
       - terraform init
       - chmod +x scripts/check_key.sh
       
+      # 👉 Lock to avoid duplicate key pair creation
       - echo "🔐 Running locking script to avoid duplicate key creation..."
       - chmod +x scripts/pre_terraform_lock.py
       - export TF_VAR_usermail=$(grep 'usermail' terraform.tfvars | cut -d '=' -f2 | tr -d ' "')
       - export TF_VAR_key_name=$(grep 'key_name' terraform.tfvars | cut -d '=' -f2 | tr -d ' "')
       - export TF_VAR_aws_region=$(grep 'aws_region' terraform.tfvars | cut -d '=' -f2 | tr -d ' "' | tr -d '\r\n')
-      - python3.8 scripts/pre_terraform_lock.py
+      - echo "🔐 Running locking script to avoid duplicate key creation..."
+      - python3 scripts/pre_terraform_lock.py
+
 
       - terraform apply -auto-approve
 
+      # ✅ Remove lock after success
       - echo "🧹 Removing lock after Terraform apply..."
       - aws s3 rm s3://splunk-deployment-test/clients/$TF_VAR_usermail/key-lock.json --region $TF_VAR_aws_region
       

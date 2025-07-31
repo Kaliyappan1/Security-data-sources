@@ -31,7 +31,7 @@ phases:
 
       # ✅ Install boto3 for Python
       - echo "Installing boto3..."
-      - pip3.8 install boto3
+      - pip3 install boto3
 
   pre_build:
     commands:
