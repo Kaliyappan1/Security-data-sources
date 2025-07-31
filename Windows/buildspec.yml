@@ -7,6 +7,8 @@ cache:
 
 phases:
   install:
+    runtime-versions:
+      python: 3.8
     commands:
       - cd Windows
       - echo Installing Terraform and Ansible, and boto3...
