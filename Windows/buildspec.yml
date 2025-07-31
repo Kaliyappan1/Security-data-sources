@@ -14,8 +14,6 @@ phases:
       - aws s3 cp s3://splunk-deployment-test/toolkits/python38.tar.gz /tmp/python38.tar.gz
       - tar -xzf /tmp/python38.tar.gz -C /opt/python38
       - export PATH="/opt/python38/bin:$PATH"
-      - echo "Python version: $(python3.8 --version)"
-      - echo "Pip version: $(pip3.8 --version)"
 
       - echo Installing Terraform and Ansible, and boto3...
       - mkdir -p /root/terraform_cache /root/.ansible_cache
