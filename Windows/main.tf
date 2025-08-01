@@ -133,6 +133,6 @@ resource "local_file" "windows_inventory" {
 
   content = <<EOF
 [windows]
-windows_server ansible_host=${aws_instance.ad_dns.public_ip} ansible_user=Administrator ansible_password="${trimspace(rsadecrypt(aws_instance.ad_dns.password_data, file("${path.module}/keys/${local.final_key_name}.pem")))}" ansible_connection=winrm ansible_winrm_transport=basic ansible_port=5985 ansible_winrm_server_cert_validation=ignore
+windows_server ansible_host=${aws_instance.ad_dns.public_ip} ansible_user=Administrator ansible_password="${rsadecrypt(aws_instance.ad_dns.password_data, file("${path.module}/keys/${local.final_key_name}.pem"))}" ansible_connection=winrm ansible_winrm_transport=basic ansible_port=5985 ansible_winrm_server_cert_validation=ignore
 EOF
 }
