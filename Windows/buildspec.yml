@@ -28,23 +28,27 @@
             echo "Ansible already installed.";
           fi
 
-        # Python dependencies for Windows support
+        # Python dependencies for Windows support - UPDATED SECTION
         - echo "Installing Python packages for boto3 and Windows support..."
-        - pip3 install --upgrade pip
-        - pip3 install boto3 pywinrm requests>=2.9.1
-        # Verify installation
-        - python3 -c "import winrm; print('winrm version:', winrm.__version__)"
-        - echo "Python packages:"
-        - pip3 list | grep winrm
-        - echo "Python path:"
-        - python3 -c "import sys; print(sys.path)"
-        - echo "Debugging information:"
-        - which python3
-        - which ansible
-        - python3 -c "import sys; print(sys.executable)"
-        - echo "Ansible Python interpreter:"
+        # First identify which Python Ansible is using
+        - export ANSIBLE_PYTHON=$(ansible --version | grep "python version" | awk '{print $NF}' | tr -d '()')
+        - echo "Ansible is using Python at: $ANSIBLE_PYTHON"
+        
+        # Install packages in Ansible's Python environment
+        - $ANSIBLE_PYTHON -m pip install --upgrade pip
+        - $ANSIBLE_PYTHON -m pip install boto3 pywinrm requests>=2.9.1
+        
+        # Verify installation in the correct environment
+        - echo "Verifying pywinrm installation:"
+        - $ANSIBLE_PYTHON -c "import winrm; print(f'winrm {winrm.__version__} installed in {__import__(\"sys\").executable}')"
+        
+        # Additional diagnostics
+        - echo "Python packages in Ansible environment:"
+        - $ANSIBLE_PYTHON -m pip list | grep -E 'winrm|requests'
+        - echo "Python path for Ansible:"
+        - $ANSIBLE_PYTHON -c "import sys; print(sys.path)"
+        - echo "Ansible configuration:"
         - ansible --version
-
 
     pre_build:
       commands:
