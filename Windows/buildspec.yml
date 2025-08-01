@@ -8,47 +8,48 @@
   phases:
     install:
       commands:
-        - cd Windows
-        - echo Installing Terraform and Ansible, and boto3...
-        - mkdir -p /root/terraform_cache /root/.ansible_cache
-        - if [ ! -f /root/terraform_cache/terraform ]; then
-            echo "Terraform not in cache. Downloading..." &&
-            wget https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip &&
-            unzip terraform_1.5.7_linux_amd64.zip -d /root/terraform_cache &&
-            chmod +x /root/terraform_cache/terraform;
-          else
-            echo "Terraform found in cache.";
-          fi
-        - export PATH=$PATH:/root/terraform_cache
-        - terraform --version
-        - if ! ansible --version > /dev/null 2>&1; then
-            echo "Installing Ansible..." &&
-            yum install -y unzip wget ansible;
-          else
-            echo "Ansible already installed.";
-          fi
+      - cd Windows
+      - echo Installing Terraform and Ansible, and boto3...
+      - mkdir -p /root/terraform_cache /root/.ansible_cache
+      - if [ ! -f /root/terraform_cache/terraform ]; then
+          echo "Terraform not in cache. Downloading..." &&
+          wget https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip &&
+          unzip terraform_1.5.7_linux_amd64.zip -d /root/terraform_cache &&
+          chmod +x /root/terraform_cache/terraform;
+        else
+          echo "Terraform found in cache.";
+        fi
+      - export PATH=$PATH:/root/terraform_cache
+      - terraform --version
+      - if ! ansible --version > /dev/null 2>&1; then
+          echo "Installing Ansible..." &&
+          yum install -y unzip wget ansible;
+        else
+          echo "Ansible already installed.";
+        fi
 
-        # Python dependencies for Windows support - UPDATED SECTION
-        - echo "Installing Python packages for boto3 and Windows support..."
-        # First identify which Python Ansible is using
-        - export ANSIBLE_PYTHON=$(ansible --version | grep "python version" | awk '{print $NF}' | tr -d '()')
-        - echo "Ansible is using Python at: $ANSIBLE_PYTHON"
-        
-        # Install packages in Ansible's Python environment
-        - $ANSIBLE_PYTHON -m pip install --upgrade pip
-        - $ANSIBLE_PYTHON -m pip install boto3 pywinrm requests>=2.9.1
-        
-        # Verify installation in the correct environment
-        - echo "Verifying pywinrm installation:"
-        - $ANSIBLE_PYTHON -c "import winrm; print(f'winrm {winrm.__version__} installed in {__import__(\"sys\").executable}')"
-        
-        # Additional diagnostics
-        - echo "Python packages in Ansible environment:"
-        - $ANSIBLE_PYTHON -m pip list | grep -E 'winrm|requests'
-        - echo "Python path for Ansible:"
-        - $ANSIBLE_PYTHON -c "import sys; print(sys.path)"
-        - echo "Ansible configuration:"
-        - ansible --version
+      # Python dependencies for Windows support - UPDATED SECTION
+      - echo "Installing Python packages for boto3 and Windows support..."
+      # First identify which Python Ansible is using
+      - export ANSIBLE_PYTHON=$(ansible --version | grep "python version" | awk '{print $NF}' | tr -d '()')
+      - echo "Ansible is using Python at: $ANSIBLE_PYTHON"
+      
+      # Install packages in Ansible's Python environment
+      - $ANSIBLE_PYTHON -m pip install --upgrade pip
+      - $ANSIBLE_PYTHON -m pip install boto3 pywinrm requests>=2.9.1
+      
+      # Verify installation in the correct environment
+      - echo "Verifying pywinrm installation:"
+      - $ANSIBLE_PYTHON -c "import winrm; print(f'winrm {winrm.__version__} installed in {__import__(\"sys\").executable}')"
+      
+      # Additional diagnostics
+      - echo "Python packages in Ansible environment:"
+      - $ANSIBLE_PYTHON -m pip list | grep -E 'winrm|requests'
+      - echo "Python path for Ansible:"
+      - $ANSIBLE_PYTHON -c "import sys; print(sys.path)"
+      - echo "Ansible configuration:"
+      - ansible --version
+
 
     pre_build:
       commands:
