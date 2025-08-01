@@ -30,16 +30,18 @@
             echo "Ansible already installed.";
           fi
 
-        # Python dependencies for Windows support
-        - echo "Installing Python packages for boto3 and Windows support..."
-        - ANSIBLE_PYTHON=$(ansible --version | grep "python version" | awk '{print $NF}' | tr -d '()') && echo "Ansible is using Python at: $ANSIBLE_PYTHON"
-        - $ANSIBLE_PYTHON -m pip install --upgrade pip
-        - $ANSIBLE_PYTHON -m pip install boto3 pywinrm requests>=2.9.1
-        - $ANSIBLE_PYTHON -c "import winrm; print(f'winrm {winrm.__version__} installed in {__import__(\"sys\").executable}')"
-        - echo "Python packages in Ansible environment:"
-        - $ANSIBLE_PYTHON -m pip list | grep -E 'winrm|requests'
-        - echo "Python path for Ansible:"
-        - $ANSIBLE_PYTHON -c "import sys; print(sys.path)"
+        # Directly install pywinrm in Ansible's Python 3.9 environment
+        - echo "Installing pywinrm in Ansible's Python environment (/usr/bin/python3.9)..."
+        - /usr/bin/python3.9 -m pip install --upgrade pip
+        - /usr/bin/python3.9 -m pip install pywinrm requests>=2.9.1 boto3
+        
+        # Verify installation
+        - echo "Verifying pywinrm installation:"
+        - /usr/bin/python3.9 -c "import winrm; print('winrm successfully installed in Ansible environment')"
+        - echo "Installed packages:"
+        - /usr/bin/python3.9 -m pip list | grep -E 'winrm|requests|boto3'
+        
+        # Verify Ansible can see winrm
         - echo "Ansible configuration:"
         - ansible --version
 
