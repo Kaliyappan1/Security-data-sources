@@ -9,7 +9,7 @@
     install:
       commands:
         - cd Windows
-        - echo Installing Terraform and Ansible, and boto3...
+        - echo "Installing Terraform and Ansible, and boto3..."
         - mkdir -p /root/terraform_cache /root/.ansible_cache
         - |
           if [ ! -f /root/terraform_cache/terraform ]; then
@@ -32,8 +32,7 @@
 
         # Python dependencies for Windows support
         - echo "Installing Python packages for boto3 and Windows support..."
-        - export ANSIBLE_PYTHON=$(ansible --version | grep "python version" | awk '{print $NF}' | tr -d '()')
-        - echo "Ansible is using Python at: $ANSIBLE_PYTHON"
+        - ANSIBLE_PYTHON=$(ansible --version | grep "python version" | awk '{print $NF}' | tr -d '()') && echo "Ansible is using Python at: $ANSIBLE_PYTHON"
         - $ANSIBLE_PYTHON -m pip install --upgrade pip
         - $ANSIBLE_PYTHON -m pip install boto3 pywinrm requests>=2.9.1
         - $ANSIBLE_PYTHON -c "import winrm; print(f'winrm {winrm.__version__} installed in {__import__(\"sys\").executable}')"
@@ -43,7 +42,6 @@
         - $ANSIBLE_PYTHON -c "import sys; print(sys.path)"
         - echo "Ansible configuration:"
         - ansible --version
-
 
     pre_build:
       commands:
