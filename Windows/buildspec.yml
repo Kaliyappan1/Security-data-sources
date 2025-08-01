@@ -27,7 +27,6 @@
           else
             echo "Ansible already installed.";
           fi
-        - ansible --version
 
         # Python dependencies for Windows support
         - echo "Installing Python packages for boto3 and Windows support..."
@@ -35,6 +34,16 @@
         - pip3 install boto3 pywinrm requests>=2.9.1
         # Verify installation
         - python3 -c "import winrm; print('winrm version:', winrm.__version__)"
+        - echo "Python packages:"
+        - pip3 list | grep winrm
+        - echo "Python path:"
+        - python3 -c "import sys; print(sys.path)"
+        - echo "Debugging information:"
+        - which python3
+        - which ansible
+        - python3 -c "import sys; print(sys.executable)"
+        - echo "Ansible Python interpreter:"
+        - ansible --version
 
 
     pre_build:
