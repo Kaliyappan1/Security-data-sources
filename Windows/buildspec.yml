@@ -32,14 +32,15 @@
 
         # Directly install pywinrm in Ansible's Python 3.9 environment
         - echo "Installing pywinrm in Ansible's Python environment (/usr/bin/python3.9)..."
-        - /usr/bin/python3.9 -m pip install --upgrade pip
-        - /usr/bin/python3.9 -m pip install pywinrm requests>=2.9.1 boto3
+        - pip install --upgrade pip
+        - /usr/bin/python3.9 -m pip install pywinrm requests>=2.9.1
+        - pip install boto3
         
         # Verify installation
         - echo "Verifying pywinrm installation:"
         - /usr/bin/python3.9 -c "import winrm; print('winrm successfully installed in Ansible environment')"
         - echo "Installed packages:"
-        - /usr/bin/python3.9 -m pip list | grep -E 'winrm|requests|boto3'
+        - /usr/bin/python3.9 -m pip list | grep -E 'winrm|requests'
         
         # Verify Ansible can see winrm
         - echo "Ansible configuration:"
