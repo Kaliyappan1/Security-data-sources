@@ -9,6 +9,12 @@ variable "usermail" {
   type        = string
 }
 
+variable "sg_name" {
+  description = "Security group name to check or create"
+  type        = string
+  default     = "ossec-sg"
+}
+
 variable "key_name" {
   description = "Name of the EC2 Key Pair"
   type        = string
