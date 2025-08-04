@@ -135,7 +135,7 @@ resource "aws_instance" "openvpn" {
   ]
 
   tags = {
-    Name          = OpenVPN
+    Name          = "OpenVPN"
     AutoStop      = true
     ServiceType   = var.servicetype
     Owner         = var.usermail
