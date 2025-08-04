@@ -45,12 +45,12 @@ phases:
       - chmod +x scripts/check_key.sh
       # 👉 Lock to avoid duplicate key pair creation
       - echo "🔐 Running locking script to avoid duplicate key creation..."
-      - chmod +x scripts/pre_terraform_lock.py
+
       - export TF_VAR_usermail=$(grep 'usermail' terraform.tfvars | cut -d '=' -f2 | tr -d ' "')
       - export TF_VAR_key_name=$(grep 'key_name' terraform.tfvars | cut -d '=' -f2 | tr -d ' "')
       - export TF_VAR_aws_region=$(grep 'aws_region' terraform.tfvars | cut -d '=' -f2 | tr -d ' "' | tr -d '\r\n')
       - echo "🔐 Running locking script to avoid duplicate key creation..."
-      - python3 scripts/pre_terraform_lock.py
+
 
 
       - terraform apply -auto-approve
