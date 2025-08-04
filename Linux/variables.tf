@@ -3,11 +3,6 @@ variable "aws_region" {
   type        = string
 }
 
-variable "instance_name" {
-  description = "Name of the EC2 instance"
-  type        = string
-}
-
 variable "usermail" {
   description = "User's email for tagging and key management"
   type        = string
