@@ -154,7 +154,7 @@ resource "aws_instance" "linux" {
 
 
   tags = {
-    Name          = Linux (Red Hat)
+    Name          = "Linux (Red Hat)"
     AutoStop      = true
     ServiceType   = var.servicetype
     Owner         = var.usermail
