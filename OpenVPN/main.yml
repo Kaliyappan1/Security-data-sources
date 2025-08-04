@@ -1,4 +1,13 @@
 ---
+- name: Wait for instance to fully boot
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Pause for 15 seconds
+      ansible.builtin.pause:
+        seconds: 15
+
 - name: Install and configure OpenVPN Access Server on Ubuntu 22.04
   hosts: openvpn
   become: true
