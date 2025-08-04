@@ -1,21 +1,7 @@
 ---
-- name: Wait for instance to fully boot
-  hosts: localhost
-  connection: local
-  gather_facts: false
-  tasks:
-    - name: Pause for 15 seconds
-      ansible.builtin.pause:
-        seconds: 15
-
 - name: Install and configure OpenVPN Access Server on Ubuntu 22.04
   hosts: openvpn
   become: true
-  vars:
-    vpn_admin_user: "ubuntu"
-    vpn_admin_password: "SoftMania@123"
-    default_user_password: "SoftMania@123"
-
   tasks:
 
     - name: Update and upgrade APT packages
@@ -34,37 +20,26 @@
     - name: Configure timezone
       command: dpkg-reconfigure -f noninteractive tzdata
 
-    - name: Copy OpenVPN install script to target
-      copy:
-        src: scripts/openvpn_install.sh
-        dest: /tmp/openvpn_install.sh
-        mode: '0755'
+    - name: Download and install OpenVPN Access Server using official script
+      shell: |
+        curl -fsS https://packages.openvpn.net/as/install.sh | bash -s -- --yes
+      args:
+        executable: /bin/bash
 
-    - name: Run OpenVPN install script
-      shell: bash /tmp/openvpn_install.sh
-
-    - name: Set password for 'openvpn' default user
+    - name: Set password for 'openvpn' user
       command: >
-        /usr/local/openvpn_as/scripts/sacli --user openvpn --new_pass '{{ default_user_password }}' SetLocalPassword
+        /usr/local/openvpn_as/scripts/sacli --user openvpn --new_pass 'SoftMania@123' SetLocalPassword
 
-    - name: Create VPN admin user '{{ vpn_admin_user }}' with password
+    - name: Create VPN user 'ubuntu' with password
       command: >
-        /usr/local/openvpn_as/scripts/sacli --user '{{ vpn_admin_user }}' --new_pass '{{ vpn_admin_password }}' SetLocalPassword
+        /usr/local/openvpn_as/scripts/sacli --user ubuntu --new_pass 'SoftMania@123' SetLocalPassword
 
-    - name: Grant admin access to '{{ vpn_admin_user }}'
+    - name: Grant admin access to 'ubuntu' user
       command: >
-        /usr/local/openvpn_as/scripts/sacli --user '{{ vpn_admin_user }}' --key "prop_superuser" --value "true" UserPropPut
+        /usr/local/openvpn_as/scripts/sacli --user ubuntu --key "prop_superuser" --value "true" UserPropPut
 
     - name: Restart OpenVPN Access Server
       systemd:
         name: openvpnas
         state: restarted
         enabled: true
-
-    - name: Show Web UI Access Info
-      debug:
-        msg: |
-          ✅ OpenVPN Access Server installation complete!
-          🌐 Web UI: https://{{ ansible_host }}:943/admin
-          👤 Admin user: {{ vpn_admin_user }}
-          🔑 Password: {{ vpn_admin_password }}
