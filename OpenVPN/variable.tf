@@ -1,6 +1,7 @@
 variable "aws_region" {
   description = "AWS region to deploy resources"
   type        = string
+  default     = "us-east-1"
 }
 
 variable "usermail" {
@@ -22,6 +23,7 @@ variable "instance_type" {
 variable "storage_size" {
   description = "Size of the EBS volume in GB"
   type        = number
+  default     = "30"
 }
 
 variable "quotahours" {
@@ -46,4 +48,5 @@ variable "planstartdate" {
 
 variable "servicetype" {
   type        = string
+  default     = "DataSources"
 }

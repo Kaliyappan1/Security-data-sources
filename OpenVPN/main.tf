@@ -125,7 +125,7 @@ resource "aws_instance" "openvpn" {
 
 
   root_block_device {
-    volume_size = 30
+    volume_size = storage_size
   }
 
   # Ensure we don't proceed if key creation failed
