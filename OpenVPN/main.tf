@@ -120,12 +120,12 @@ resource "aws_instance" "openvpn" {
   vpc_security_group_ids      = (
   length(data.aws_security_groups.existing.ids) > 0
     ? data.aws_security_groups.existing.ids
-    : [aws_security_group.ossec_sg[0].id]
+    : [aws_security_group.openvpn_sg[0].id]
 )
 
 
   root_block_device {
-    volume_size = storage_size
+    volume_size = var.storage_size
   }
 
   # Ensure we don't proceed if key creation failed

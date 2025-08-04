@@ -12,7 +12,7 @@ variable "usermail" {
 variable "sg_name" {
   description = "Security group name to check or create"
   type        = string
-  default     = "ossec-sg"
+  default     = "openvpn-sg"
 }
 
 variable "key_name" {
