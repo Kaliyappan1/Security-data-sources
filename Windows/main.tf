@@ -69,7 +69,7 @@ resource "aws_security_group" "Terraform-ad_dns-sg" {
   description = "Security group for AD & DNS"
 
   dynamic "ingress" {
-    for_each = [80, 5985, 5986, 3389, 53, 636, 389, 88, 464]
+    for_each = [80, 88, 53, 464, 5985, 5986, 3389, 636, 389]
     content {
       from_port   = ingress.value
       to_port     = ingress.value

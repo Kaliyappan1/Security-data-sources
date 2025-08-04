@@ -1,0 +1,62 @@
+version: 0.2
+
+cache:
+  paths:
+    - /root/terraform_cache/**/*
+    - /root/.ansible_cache/**/*
+
+phases:
+  install:
+    commands:
+      - cd Linux
+      - echo Installing Terraform and boto3...
+      - mkdir -p /root/terraform_cache /root/.ansible_cache
+      - if [ ! -f /root/terraform_cache/terraform ]; then
+          echo "Terraform not in cache. Downloading..." &&
+          wget https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip &&
+          unzip terraform_1.5.7_linux_amd64.zip -d /root/terraform_cache &&
+          chmod +x /root/terraform_cache/terraform;
+        else
+          echo "Terraform found in cache.";
+        fi
+      - export PATH=$PATH:/root/terraform_cache
+      - terraform --version
+
+      # ✅ Install boto3 for Python
+      - echo "Installing boto3..."
+      - pip3 install boto3
+
+  pre_build:
+    commands:
+      - echo "Downloading dynamic tfvars from S3..."
+      - aws s3 cp s3://splunk-deployment-test/$TFVARS_S3_KEY terraform.tfvars
+      - echo "Pre-build phase complete."
+
+  build:
+    commands:
+      - terraform init
+      - chmod +x scripts/check_key.sh
+      # 👉 Lock to avoid duplicate key pair creation
+      - echo "🔐 Running locking script to avoid duplicate key creation..."
+      - chmod +x scripts/pre_terraform_lock.py
+      - export TF_VAR_usermail=$(grep 'usermail' terraform.tfvars | cut -d '=' -f2 | tr -d ' "')
+      - export TF_VAR_key_name=$(grep 'key_name' terraform.tfvars | cut -d '=' -f2 | tr -d ' "')
+      - export TF_VAR_aws_region=$(grep 'aws_region' terraform.tfvars | cut -d '=' -f2 | tr -d ' "' | tr -d '\r\n')
+      - echo "🔐 Running locking script to avoid duplicate key creation..."
+      - python3 scripts/pre_terraform_lock.py
+
+      - terraform apply -auto-approve
+
+      # ✅ Remove lock after success
+      - echo "🧹 Removing lock after Terraform apply..."
+      - aws s3 rm s3://splunk-deployment-test/clients/$TF_VAR_usermail/key-lock.json --region $TF_VAR_aws_region
+      
+      - echo "✅ Build phase complete."
+      - export INSTANCE_ID=$(terraform output -raw instance_id)
+      - echo $INSTANCE_ID > instance_id.txt
+
+  post_build:
+    commands:
+      - echo "EC2 Splunk Deployment Completed Successfully!"
+      - chmod +x scripts/stop_instance.sh
+      - ./scripts/stop_instance.sh $(cat instance_id.txt)
