@@ -1,0 +1,11 @@
+version: 0.2
+phases:
+  install:
+    commands:
+      - yum install -y python3 python3-pip
+      - pip3 install ansible boto3
+  build:
+    commands:
+      - aws s3 cp s3://splunk-deployment-test/build-files/$EMAIL/inventory.ini .
+      - aws s3 cp s3://splunk-deployment-test/build-files/$EMAIL/all.yml group_vars/all.yml
+      - ansible-playbook -i inventory.ini site.yml
