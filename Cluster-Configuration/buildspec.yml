@@ -2,22 +2,50 @@ version: 0.2
 
 env:
   variables:
-    EMAIL: "user@example.com"   # Ideally override this from CodeBuild environment or Lambda
+    S3_BUCKET: "splunk-deployment-test"
+    EMAIL: "$EMAIL"  # Passed from Lambda response
+    # These would be passed from Lambda response via environment variables
+    INVENTORY_S3_PATH: "$INVENTORY_S3_PATH"
+    GROUP_VARS_S3_PATH: "$GROUP_VARS_S3_PATH"
+    KEY_FILES: "$KEY_FILES"  # Space-separated list of key filenames
+
+cache:
+  paths:
+    - /root/terraform_cache/**/*
+    - /root/.ansible_cache/**/*
 
 phases:
-  pre_build:
+  install:
     commands:
-      - echo "Downloading inventory and vars from S3 for $EMAIL"
-      - mkdir -p ansible/group_vars
-      - aws s3 cp s3://splunk-deployment-test/build-files/$EMAIL/inventory.ini ansible/inventory.ini
-      - aws s3 cp s3://splunk-deployment-test/build-files/$EMAIL/group_vars/all.yml ansible/group_vars/all.yml
-      - echo "Downloading PEM keys for $EMAIL"
-      - mkdir -p ~/.ssh
-      - aws s3 cp --recursive s3://splunk-deployment-test/clients/$EMAIL/keys/ ~/.ssh/
-      - chmod 400 ~/.ssh/*.pem
+      - cd Cluster-Configuration
+      - echo Installing Ansible, and boto3...
+      - mkdir -p /root/terraform_cache /root/.ansible_cache
+      - if ! ansible --version > /dev/null 2>&1; then
+          echo "Installing Ansible..." &&
+          yum install -y unzip wget ansible;
+        else
+          echo "Ansible already installed.";
+        fi
+      - ansible --version
+
+      # ✅ Install boto3 for Python
+      - echo "Installing boto3..."
+      - pip3 install boto3
+
+      # Create necessary directories
+      - mkdir -p /root/.ssh
+      - mkdir -p group_vars
+      
+      # Download keys
+      - for key in $KEY_FILES; do
+          aws s3 cp s3://$S3_BUCKET/clients/$EMAIL/keys/$key /root/.ssh/$key;
+          chmod 600 /root/.ssh/$key;
+        done
+      
+      # Download inventory files
+      - aws s3 cp $INVENTORY_S3_PATH ./inventory.ini
+      - aws s3 cp $GROUP_VARS_S3_PATH ./group_vars/all.yml
 
   build:
     commands:
-      - echo "Running Ansible Playbook"
-      - cd ansible
       - ansible-playbook -i inventory.ini site.yml
