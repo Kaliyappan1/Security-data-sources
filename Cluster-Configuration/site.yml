@@ -368,20 +368,6 @@
   become: yes
   tasks:
 
-    - name: Run Splunk first-time setup
-      command: /opt/splunk/bin/splunk ftr --accept-license
-      become: yes
-      become_user: splunk
-
-    - name: Download Splunk License File to License Server
-      get_url:
-        url: "{{ splunk_license_url }}"
-        dest: /opt/splunk/etc/licenses/developer-license.lic
-        mode: '0644'  # Set proper permissions
-
-    - name: Apply License on License Server
-      command: /opt/splunk/bin/splunk add license /opt/splunk/etc/licenses/developer-license.lic -auth admin:{{ splunk_admin_password }}
-
     - name: Restart Splunk to Apply License
       command: /opt/splunk/bin/splunk restart
 
