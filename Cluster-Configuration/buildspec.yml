@@ -1,11 +1,23 @@
 version: 0.2
+
+env:
+  variables:
+    EMAIL: "user@example.com"   # Ideally override this from CodeBuild environment or Lambda
+
 phases:
-  install:
+  pre_build:
     commands:
-      - yum install -y python3 python3-pip
-      - pip3 install ansible boto3
+      - echo "Downloading inventory and vars from S3 for $EMAIL"
+      - mkdir -p ansible/group_vars
+      - aws s3 cp s3://splunk-deployment-test/build-files/$EMAIL/inventory.ini ansible/inventory.ini
+      - aws s3 cp s3://splunk-deployment-test/build-files/$EMAIL/group_vars/all.yml ansible/group_vars/all.yml
+      - echo "Downloading PEM keys for $EMAIL"
+      - mkdir -p ~/.ssh
+      - aws s3 cp --recursive s3://splunk-deployment-test/clients/$EMAIL/keys/ ~/.ssh/
+      - chmod 400 ~/.ssh/*.pem
+
   build:
     commands:
-      - aws s3 cp s3://splunk-deployment-test/build-files/$EMAIL/inventory.ini .
-      - aws s3 cp s3://splunk-deployment-test/build-files/$EMAIL/all.yml group_vars/all.yml
+      - echo "Running Ansible Playbook"
+      - cd ansible
       - ansible-playbook -i inventory.ini site.yml
