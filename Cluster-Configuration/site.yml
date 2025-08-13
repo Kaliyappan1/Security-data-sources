@@ -71,7 +71,7 @@
       become: yes
       become_user: root
       command:
-        cmd: /opt/splunk/bin/splunk edit cluster-config -mode peer -manager_uri https://{{ ClusterMaster.private_ip }}:8089 -replication_port 9887 -secret SoftManiaKey -auth admin:{{ splunk_admin_password }} --accept-license --no-prompt
+        cmd: /opt/splunk/bin/splunk edit cluster-config -mode peer -manager_uri https://{{ cluster_master.private_ip }}:8089 -replication_port 9887 -secret SoftManiaKey -auth admin:{{ splunk_admin_password }} --accept-license --no-prompt
 
     - name: splunk restart for Configuring Manager Node
       become: yes
@@ -171,7 +171,7 @@
   become: yes
   tasks:
     - name: configure indexer cluster with search head 
-      command : /opt/splunk/bin/splunk edit cluster-config -mode searchhead -manager_uri https://{{ ClusterMaster.private_ip }}:8089 -secret SoftManiaKey -auth admin:{{ splunk_admin_password }}
+      command : /opt/splunk/bin/splunk edit cluster-config -mode searchhead -manager_uri https://{{ cluster_master.private_ip }}:8089 -secret SoftManiaKey -auth admin:{{ splunk_admin_password }}
     
     - name: restart
       become: yes
@@ -217,7 +217,7 @@
         content: |
           [indexer_discovery:manager1]
           pass4SymmKey = SoftManiaSHClusterKey
-          manager_uri = https://{{ ClusterMaster.private_ip }}:8089
+          manager_uri = https://{{ cluster_master.private_ip }}:8089
           [tcpout:group1]
           autoLBFrequency = 30
           forceTimebasedAutoLB = true
@@ -262,7 +262,7 @@
         content: |
           [indexer_discovery:manager1]
           pass4SymmKey = SoftManiaSHClusterKey
-          manager_uri = https://{{ ClusterMaster.private_ip }}:8089
+          manager_uri = https://{{ cluster_master.private_ip }}:8089
           [tcpout:group1]
           autoLBFrequency = 30
           forceTimebasedAutoLB = true
@@ -324,7 +324,7 @@
         content: |
           [indexer_discovery:manager1]
           pass4SymmKey =SoftManiaSHClusterKey
-          manager_uri = https://{{ ClusterMaster.private_ip }}:8089
+          manager_uri = https://{{ cluster_master.private_ip }}:8089
           [tcpout:group1]
           autoLBFrequency = 30
           forceTimebasedAutoLB = true
@@ -448,7 +448,7 @@
     # Create a list of all components with their IPs
     all_components: >-
       [
-        {"name": "ClusterMaster", "ip": "{{ ClusterMaster.private_ip }}"},
+        {"name": "ClusterMaster", "ip": "{{ cluster_master.private_ip }}"},
         {% for indexer in indexers.values() %}
           {"name": "Indexer_{{ loop.index }}", "ip": "{{ indexer.private_ip }}"},
         {% endfor %}
