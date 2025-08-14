@@ -48,4 +48,4 @@ phases:
 
   build:
     commands:
-      - ansible-playbook -i inventory.ini site.yml
+      - ansible-playbook -i inventory.ini site.yml --start-at-task="Wait for splunkd to be up before configuring"
