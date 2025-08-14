@@ -182,6 +182,11 @@
 
         - name: Restart splunk after configuration
           command: /opt/splunk/bin/splunk restart
+        
+        - name: Pause to SH1 is restarting
+          run_once: true
+          pause:
+            seconds: 20
 
       rescue:
         - name: Start splunkd if down
