@@ -50,4 +50,4 @@ phases:
 
   build:
     commands:
-      - ansible-playbook -i inventory.ini site.yml --start-at-task="Configure Intermediate Forwarders"
+      - ansible-playbook -i inventory.ini site.yml
