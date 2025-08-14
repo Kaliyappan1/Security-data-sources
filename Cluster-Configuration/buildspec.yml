@@ -16,6 +16,8 @@ cache:
 
 phases:
   install:
+    runtime-versions:
+      python: 3.8
     commands:
       - cd Cluster-Configuration
       - echo Installing Ansible, and boto3...
