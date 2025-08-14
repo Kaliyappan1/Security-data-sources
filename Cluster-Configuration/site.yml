@@ -223,15 +223,38 @@
           pause:
             seconds: 20
 
-- name: shc 1 captain
+- name: Prepare and bootstrap SHC captain
   hosts: SH1
-  gather_facts: no
-  user: root
   become: yes
   tasks:
-    - name: Making cluster captain
-      command: /opt/splunk/bin/splunk bootstrap shcluster-captain -servers_list "https://{{ search_heads.SH1.private_ip }}:8089,https://{{ search_heads.SH2.private_ip }}:8089,https://{{ search_heads.SH3.private_ip }}:8089" -auth admin:{{ splunk_admin_password }}
-   
+    - name: Stop Splunk before cleaning raft
+      command: /opt/splunk/bin/splunk stop
+      ignore_errors: yes
+
+    - name: Clean raft data (reset SHC membership)
+      command: /opt/splunk/bin/splunk clean raft -auth admin:{{ splunk_admin_password }}
+      ignore_errors: yes
+
+    - name: Start Splunk after cleaning raft
+      command: /opt/splunk/bin/splunk start
+
+    - name: Wait for splunkd after restart
+      uri:
+        url: https://{{ ansible_host }}:8089
+        method: GET
+        status_code: 200
+        validate_certs: no
+      register: splunkd_status
+      retries: 10
+      delay: 5
+      until: splunkd_status.status == 200
+
+    - name: Bootstrap cluster captain
+      command: >
+        /opt/splunk/bin/splunk bootstrap shcluster-captain
+        -servers_list "https://{{ search_heads.SH1.private_ip }}:8089,https://{{ search_heads.SH2.private_ip }}:8089,https://{{ search_heads.SH3.private_ip }}:8089"
+        -auth admin:{{ splunk_admin_password }}
+
 - hosts: IFs
   user: splunk
   become: yes
