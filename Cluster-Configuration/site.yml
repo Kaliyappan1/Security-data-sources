@@ -248,14 +248,64 @@
   become_user: splunk
   become: yes
   tasks:
-    - name: configure indexer cluster with search head 
-      command : /opt/splunk/bin/splunk edit cluster-config -mode searchhead -manager_uri https://{{ cluster_master.private_ip }}:8089 -secret SoftManiaKey -auth admin:{{ splunk_admin_password }}
-    
-    - name: restart
-      become: yes
-      become_user: root
-      command:
-            cmd: /opt/splunk/bin/splunk restart
+    - block:
+        - name: Ensure Splunk is running before configuring
+          command: /opt/splunk/bin/splunk start
+          register: splunk_start
+          changed_when: "'already running' not in splunk_start.stdout"
+
+        - name: Wait until splunkd API port is available
+          wait_for:
+            host: "{{ ansible_host | default(inventory_hostname) }}"
+            port: 8089
+            delay: 5
+            timeout: 60
+
+        - name: Configure indexer cluster with search head
+          command: >
+            /opt/splunk/bin/splunk edit cluster-config
+            -mode searchhead
+            -manager_uri https://{{ cluster_master.private_ip }}:8089
+            -secret SoftManiaKey
+            -auth admin:{{ splunk_admin_password }}
+          register: config_result
+          retries: 3
+          delay: 10
+          until: config_result.rc == 0
+
+        - name: Restart Splunk after configuration
+          become_user: root
+          command: /opt/splunk/bin/splunk restart
+
+      rescue:
+        - name: Force stop Splunk
+          become_user: root
+          command: /opt/splunk/bin/splunk stop
+
+        - name: Clean raft (only if required to rejoin cluster)
+          become_user: splunk
+          command: /opt/splunk/bin/splunk clean raft
+          when: "'raft' in config_result.stderr | default('')"
+
+        - name: Start Splunk after cleanup
+          become_user: root
+          command: /opt/splunk/bin/splunk start
+
+        - name: Retry cluster config after cleanup
+          command: >
+            /opt/splunk/bin/splunk edit cluster-config
+            -mode searchhead
+            -manager_uri https://{{ cluster_master.private_ip }}:8089
+            -secret SoftManiaKey
+            -auth admin:{{ splunk_admin_password }}
+          register: config_retry
+          retries: 3
+          delay: 10
+          until: config_retry.rc == 0
+
+        - name: Restart Splunk after final config
+          become_user: root
+          command: /opt/splunk/bin/splunk restart
      
 - hosts: ClusterMaster
   tasks:
