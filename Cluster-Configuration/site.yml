@@ -344,19 +344,6 @@
     - name: Include tasks from enable_indexer.yml
       include_tasks: enable_indexer.yml
 
-   
-- name: Configure License Server
-  hosts: Management_server
-  become: yes
-  tasks:
-    - name: Restart Splunk to Apply License
-      command: /opt/splunk/bin/splunk restart
-
-    - name: Pause
-      run_once: true
-      pause:
-        seconds: 20
-
 - hosts: all_splunk
   gather_facts: no
   become: yes
