@@ -102,8 +102,7 @@
             cmd: /opt/splunk/bin/splunk restart
  
 - name: Configure Search Heads
-  hosts: SH
-  gather_facts: no
+  hosts: search_heads
   become: yes
   tasks:
 
