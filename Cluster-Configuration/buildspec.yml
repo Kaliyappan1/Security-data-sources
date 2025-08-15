@@ -45,7 +45,24 @@ phases:
       # Download inventory files
       - aws s3 cp $INVENTORY_S3_PATH ./inventory.ini
       - aws s3 cp $GROUP_VARS_S3_PATH ./group_vars/all.yml
+      
+      # Download instance_ids.txt file
+      - aws s3 cp s3://$S3_BUCKET/cluster-templates/final/$EMAIL/instance_ids.txt ./instance_ids.txt
 
   build:
     commands:
       - ansible-playbook -i inventory.ini site.yml
+
+  post_build:
+    commands:
+      - echo "EC2 Splunk + Ansible Deployment Completed Successfully!"
+      - |
+        if [ -f instance_ids.txt ]; then
+          echo "Stopping instances listed in instance_ids.txt..."
+          INSTANCE_IDS=$(tr '\n' ' ' < instance_ids.txt)
+          aws ec2 stop-instances --instance-ids $INSTANCE_IDS
+          echo "Stopped instances: $INSTANCE_IDS"
+        else
+          echo "instance_ids.txt not found - skipping instance stop"
+        fi
+      - echo "Build completed at $(date)"
