@@ -101,49 +101,32 @@
       command:
             cmd: /opt/splunk/bin/splunk restart
  
-- name: search Head 1
+- name: Configure Search Heads
+  hosts: SH
   gather_facts: no
-  hosts: SH1
-  user: root
   become: yes
   tasks:
-      
-    - name: configure search peer 
-      command: /opt/splunk/bin/splunk init shcluster-config -auth admin:{{ splunk_admin_password }} -mgmt_uri https://{{ search_heads.SH1.private_ip }}:8089 -replication_port 9000 -replication_factor 3 -conf_deploy_fetch_url http://{{ Management_server.private_ip }}:8089 -secret SoftManiaSHClusterKey -shcluster_label shcluster1 --accept-license --no-prompt
 
-    - name: restart splunk
+    - name: Configure search head cluster member
+      command: >
+        /opt/splunk/bin/splunk init shcluster-config
+        -auth admin:{{ splunk_admin_password }}
+        -mgmt_uri https://{{ ansible_host }}:8089
+        -replication_port 9000
+        -replication_factor 3
+        -conf_deploy_fetch_url http://{{ hostvars['Management_server'].ansible_host }}:8089
+        -secret SoftManiaSHClusterKey
+        -shcluster_label shcluster1
+        --accept-license
+        --no-prompt
+
+    - name: Restart splunk
       command: /opt/splunk/bin/splunk restart
 
-- name: search Head 2
-  hosts: SH2
-  gather_facts: no
-  user: root
-  become: yes
-  tasks:
-      
-    - name: configure search peer 
-      command: /opt/splunk/bin/splunk init shcluster-config -auth admin:{{ splunk_admin_password }} -mgmt_uri https://{{ search_heads.SH2.private_ip }}:8089 -replication_port 9000 -replication_factor 3 -conf_deploy_fetch_url http://{{ Management_server.private_ip }}:8089 -secret SoftManiaSHClusterKey -shcluster_label shcluster1
-
-    - name: restart splunk
-      command: /opt/splunk/bin/splunk restart
-
-- name: search Head 3
-  hosts: SH3
-  gather_facts: no
-  user: root
-  become: yes
-  tasks:
-      
-    - name: configure search peer 
-      command: /opt/splunk/bin/splunk init shcluster-config -auth admin:{{ splunk_admin_password }} -mgmt_uri https://{{ search_heads.SH3.private_ip }}:8089 -replication_port 9000 -replication_factor 3 -conf_deploy_fetch_url http://{{ Management_server.private_ip }}:8089 -secret SoftManiaSHClusterKey -shcluster_label shcluster1
-
-    - name: restart splunk
-      command: /opt/splunk/bin/splunk restart
-    
-    - name: Pause to SH1 is restarting
-      run_once: true
+    - name: Pause after first restart
       pause:
         seconds: 20
+      run_once: true
 
 - name: shc 1 captain
   hosts: SH1
@@ -367,21 +350,6 @@
   hosts: Management_server
   become: yes
   tasks:
-
-    - name: Run Splunk first-time setup
-      command: /opt/splunk/bin/splunk ftr --accept-license
-      become: yes
-      become_user: splunk
-
-    - name: Download Splunk License File to License Server
-      get_url:
-        url: "{{ splunk_license_url }}"
-        dest: /opt/splunk/etc/licenses/developer-license.lic
-        mode: '0644'  # Set proper permissions
-
-    - name: Apply License on License Server
-      command: /opt/splunk/bin/splunk add license /opt/splunk/etc/licenses/developer-license.lic -auth admin:{{ splunk_admin_password }}
-
     - name: Restart Splunk to Apply License
       command: /opt/splunk/bin/splunk restart
 
