@@ -20,6 +20,21 @@
       shell: "/opt/splunk/bin/splunk set default-hostname {{ inventory_hostname }} -auth admin:{{ splunk_admin_password }} --answer-yes"
       args:
         executable: /bin/bash
+    
+    - name: Set Hostname for Each Instance
+      command: sudo hostnamectl set-hostname {{ inventory_hostname }}
+
+    - name: Set servername for Each Instance
+      become_user: root
+      shell: "/opt/splunk/bin/splunk set servername {{ inventory_hostname }} -auth admin:{{ splunk_admin_password }} --answer-yes"
+      args:
+        executable: /bin/bash
+    
+    - name: Set default-hostname for Each Instance
+      become_user: root
+      shell: "/opt/splunk/bin/splunk set default-hostname {{ inventory_hostname }} -auth admin:{{ splunk_admin_password }} --answer-yes"
+      args:
+        executable: /bin/bash
 
 - name: Setup Splunk Cluster Environment
   hosts: all
