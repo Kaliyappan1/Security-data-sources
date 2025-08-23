@@ -73,6 +73,12 @@
       command:
         cmd: /opt/splunk/bin/splunk edit cluster-config -mode peer -manager_uri https://{{ ClusterMaster.private_ip }}:8089 -replication_port 9887 -secret SoftManiaKey -auth admin:{{ splunk_admin_password }} --accept-license --no-prompt
 
+    - name: Enable receiving port 9997
+      become: yes
+      become_user: root
+      command: >
+        /opt/splunk/bin/splunk enable listen 9997 -auth admin:{{ splunk_admin_password }}
+
     - name: splunk restart for Configuring Manager Node
       become: yes
       become_user: root
@@ -198,50 +204,59 @@
       command:
             cmd: /opt/splunk/bin/splunk restart
 
-- name: Configure Splunk Deployment Apps
+- name: Configure Splunk Deployment and Local Apps on Management Server
   hosts: Management_server
   gather_facts: no
   become: yes
   become_user: splunk
+  vars:
+    app_paths:
+      - "/opt/splunk/etc/deployment-apps/ORG_general_infra_config"
+      - "/opt/splunk/etc/apps/ORG_general_infra_config"
+    outputs_conf_content: |
+      [indexer_discovery:manager1]
+      pass4SymmKey = SoftManiaSHClusterKey
+      manager_uri = https://{{ ClusterMaster.private_ip }}:8089
+
+      [tcpout:group1]
+      autoLBFrequency = 30
+      forceTimebasedAutoLB = true
+      indexerDiscovery = manager1
+      useACK=true
+
+      [tcpout]
+      defaultGroup = group1
+
   tasks:
-    - name: Ensure directory structure exists in Management_server
+    - name: Ensure app directory structure exists
       file:
-        path: "/opt/splunk/etc/deployment-apps/ORG_general_infra_config/local"
+        path: "{{ item }}/local"
         state: directory
         mode: '0755'
-      
+      loop: "{{ app_paths }}"
 
-    - name: Create outputs.conf file
+    - name: Create outputs.conf file in both locations
       copy:
-        dest: "/opt/splunk/etc/deployment-apps/ORG_general_infra_config/local/outputs.conf"
-        content: |
-          [indexer_discovery:manager1]
-          pass4SymmKey = SoftManiaSHClusterKey
-          manager_uri = https://{{ ClusterMaster.private_ip }}:8089
-          [tcpout:group1]
-          autoLBFrequency = 30
-          forceTimebasedAutoLB = true
-          indexerDiscovery = manager1
-          useACK=true
-          [tcpout]
-          defaultGroup = group1
+        dest: "{{ item }}/local/outputs.conf"
+        content: "{{ outputs_conf_content }}"
         mode: '0644'
-      
+      loop: "{{ app_paths }}"
 
-    - name: List directory contents for verification
-      command: "ls -l /opt/splunk/etc/deployment-apps/ORG_general_infra_config/local"
+    - name: List contents of both app directories
+      command: "ls -l {{ item }}/local"
       register: ls_output
-      
-
+      loop: "{{ app_paths }}"
+      loop_control:
+        label: "{{ item }}"
+    
     - name: Display directory contents
       debug:
-        msg: "{{ ls_output.stdout_lines }}"
+        msg: "{{ item.stdout_lines }}"
+      loop: "{{ ls_output.results }}"
 
-    - name: restart
-      become: yes
+    - name: Restart Splunk on Management Server
       become_user: root
-      command:
-            cmd: /opt/splunk/bin/splunk restart
+      command: /opt/splunk/bin/splunk restart
 
 - name: Configure Splunk Search Head Cluster Apps
   hosts: Management_server
@@ -441,7 +456,6 @@
         {% for sh in search_heads.values() %}
           {"name": "SearchHead_{{ loop.index }}", "ip": "{{ sh.private_ip }}"},
         {% endfor %}
-        {"name": "IndexerCluster", "ip": "{{ IFs.private_ip }}"}
       ]
 
   tasks:
